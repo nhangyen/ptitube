@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Sharing MVP</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        input,
+        button {
+            margin: 10px 0;
+        }
+
+        video {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+            background: #000;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Video Sharing System MVP</h1>
+
+    <div class="container">
+        <h2>1. Upload Video</h2>
+        <input type="file" id="videoFile" accept="video/*">
+        <button onclick="uploadVideo()">Upload</button>
+        <p id="uploadStatus"></p>
+    </div>
+
+    <div class="container">
+        <h2>2. Watch Video</h2>
+        <input type="text" id="playFilename" placeholder="Enter filename (e.g. 1700000_video.mp4)">
+        <button onclick="playVideo()">Play</button>
+        <br>
+        <video id="videoPlayer" controls>
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api/videos';
+
+        async function uploadVideo() {
+            const fileInput = document.getElementById('videoFile');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const status = document.getElementById('uploadStatus');
+            status.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const filename = await response.text();
+                    status.textContent = 'Upload successful! Filename: ' + filename;
+                    document.getElementById('playFilename').value = filename;
+                } else {
+                    const err = await response.text();
+                    status.textContent = 'Error: ' + err;
+                }
+            } catch (e) {
+                status.textContent = 'Error: ' + e.message;
+            }
+        }
+
+        function playVideo() {
+            const filename = document.getElementById('playFilename').value;
+            if (!filename) {
+                alert('Please enter a filename');
+                return;
+            }
+            const videoPlayer = document.getElementById('videoPlayer');
+            videoPlayer.src = `${API_BASE}/${filename}`;
+            videoPlayer.play();
+        }
+    </script>
+</body>
+
+</html>

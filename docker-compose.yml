@@ -1,0 +1,77 @@
+
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: video-db
+    restart: always
+    environment:
+      POSTGRES_USER: video_user
+      POSTGRES_PASSWORD: video_password
+      POSTGRES_DB: video_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - video-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: video-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_admin
+      MINIO_ROOT_PASSWORD: minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - video-net
+
+  # Backend service - checks for backend folder (will be created in next steps)
+  # Uncomment/Enable after creating backend Dockerfile
+  backend:
+    build: 
+       context: ./backend
+       dockerfile: Dockerfile
+    container_name: video-backend
+    restart: always
+    depends_on:
+      - db
+      - minio
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/video_db
+      SPRING_DATASOURCE_USERNAME: video_user
+      SPRING_DATASOURCE_PASSWORD: video_password
+      MINIO_URL: http://minio:9000
+      MINIO_ACCESS_KEY: minio_admin
+      MINIO_SECRET_KEY: minio_password
+    ports:
+      - "8080:8080"
+    networks:
+      - video-net
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: video-tunnel
+    restart: always
+    # Token should be provided via .env or environment variable
+    # command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN} 
+    # For now, we can run it and wait for manual auth if token not present, 
+    # but usually cloudflared works best with a token for unattended docker usage.
+    # Placeholder command to keep container running if no token:
+    command: tunnel --no-autoupdate --url http://backend:8080
+    networks:
+      - video-net
+
+networks:
+  video-net:
+    driver: bridge
+
+volumes:
+  db_data:
+  minio_data:
