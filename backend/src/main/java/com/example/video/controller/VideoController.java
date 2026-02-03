@@ -1,14 +1,17 @@
 package com.example.video.controller;
 
-import com.example.video.service.MinioService;
+import com.example.video.model.Video;
+import com.example.video.service.VideoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/videos")
@@ -16,42 +19,32 @@ import java.io.InputStream;
 public class VideoController {
 
     @Autowired
-    private MinioService minioService;
-
-    @Autowired
-    private com.example.video.repository.VideoRepository videoRepository;
+    private VideoService videoService;
 
     @PostMapping("/upload")
-    public ResponseEntity<String> uploadVideo(@RequestParam("file") MultipartFile file) {
-        try {
-            String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            minioService.uploadFile(fileName, file);
+    public ResponseEntity<Video> uploadVideo(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("title") String title,
+            @RequestParam(value = "description", required = false) String description,
+            Authentication authentication) {
 
-            // Save Metadata
-            com.example.video.model.VideoMetadata metadata = new com.example.video.model.VideoMetadata();
-            metadata.setFilename(fileName);
-            metadata.setTitle(file.getOriginalFilename());
-            metadata.setContentType(file.getContentType());
-            metadata.setSize(file.getSize());
-            videoRepository.save(metadata);
-
-            return ResponseEntity.ok(fileName);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Upload failed: " + e.getMessage());
-        }
+        // Fallback to default user if not authenticated (for testing)
+        String username = (authentication != null) ? authentication.getName() : "testuser";
+        Video video = videoService.uploadVideo(file, title, description, username);
+        return ResponseEntity.ok(video);
     }
 
     @GetMapping
-    public java.util.List<com.example.video.model.VideoMetadata> listVideos() {
-        return videoRepository.findAll();
+    public List<Video> listVideos() {
+        return videoService.getAllVideos();
     }
 
-    @GetMapping(value = "/{filename}")
-    public ResponseEntity<InputStreamResource> streamVideo(@PathVariable String filename) {
+    @GetMapping(value = "/stream/{videoId}")
+    public ResponseEntity<InputStreamResource> streamVideo(@PathVariable String videoId) {
         try {
-            InputStream stream = minioService.getFile(filename);
+            InputStream stream = videoService.getVideoStream(videoId);
             return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM) // Or specific video type
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .body(new InputStreamResource(stream));
         } catch (Exception e) {
             return ResponseEntity.notFound().build();

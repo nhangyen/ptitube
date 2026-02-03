@@ -39,6 +39,8 @@
 
     <div class="container">
         <h2>1. Upload Video</h2>
+        <input type="text" id="videoTitle" placeholder="Video title (required)" style="width: 100%; padding: 8px;">
+        <input type="text" id="videoDescription" placeholder="Description (optional)" style="width: 100%; padding: 8px;">
         <input type="file" id="videoFile" accept="video/*">
         <button onclick="uploadVideo()">Upload</button>
         <p id="uploadStatus"></p>
@@ -59,28 +61,49 @@
 
         async function uploadVideo() {
             const fileInput = document.getElementById('videoFile');
+            const titleInput = document.getElementById('videoTitle');
+            const descInput = document.getElementById('videoDescription');
+            
             const file = fileInput.files[0];
+            const title = titleInput.value.trim();
+            
             if (!file) {
                 alert('Please select a file');
+                return;
+            }
+            
+            if (!title) {
+                alert('Please enter a video title');
                 return;
             }
 
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('title', title);
+            formData.append('description', descInput.value.trim() || '');
 
             const status = document.getElementById('uploadStatus');
             status.textContent = 'Uploading...';
 
+            // Debug: Log FormData
+            console.log('Uploading with:');
+            console.log('- Title:', title);
+            console.log('- Description:', descInput.value.trim() || '(empty)');
+            console.log('- File:', file.name);
+            
             try {
                 const response = await fetch(`${API_BASE}/upload`, {
                     method: 'POST',
+                    // DON'T set Content-Type - browser will set it with boundary for multipart
                     body: formData
                 });
 
                 if (response.ok) {
-                    const filename = await response.text();
-                    status.textContent = 'Upload successful! Filename: ' + filename;
-                    document.getElementById('playFilename').value = filename;
+                    const result = await response.json();
+                    status.textContent = 'Upload successful! Video ID: ' + result.id;
+                    titleInput.value = '';
+                    descInput.value = '';
+                    fileInput.value = '';
                 } else {
                     const err = await response.text();
                     status.textContent = 'Error: ' + err;

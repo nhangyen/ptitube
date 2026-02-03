@@ -13,6 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d
     networks:
       - video-net
 
@@ -54,7 +55,7 @@ services:
       - "8080:8080"
     networks:
       - video-net
-
+      
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: video-tunnel

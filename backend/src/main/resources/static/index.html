@@ -4,248 +4,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VidShare - Video Platform</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Video Sharing MVP</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap');
-
         body {
-            font-family: 'Outfit', sans-serif;
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
         }
 
-        /* Custom scrollbar for sidebar */
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
         }
 
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        input,
+        button {
+            margin: 10px 0;
+        }
+
+        video {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+            background: #000;
         }
     </style>
 </head>
 
-<body class="bg-slate-900 text-white min-h-screen flex flex-col">
+<body>
+    <h1>Video Sharing System MVP</h1>
 
-    <!-- Navbar -->
-    <nav class="bg-slate-800/80 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <!-- Logo: Clicks to Home -->
-                <div class="flex items-center cursor-pointer" onclick="showHome()">
-                    <span
-                        class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 text-transparent bg-clip-text">VidShare</span>
-                </div>
-                <div>
-                    <button onclick="document.getElementById('uploadModal').classList.remove('hidden')"
-                        class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-medium transition-all shadow-lg shadow-blue-500/30">
-                        + Upload Video
-                    </button>
-                </div>
-            </div>
-        </div>
-    </nav>
+    <div class="container">
+        <h2>1. Upload Video</h2>
+        <input type="text" id="videoTitle" placeholder="Video title (required)" style="width: 100%; padding: 8px;">
+        <input type="text" id="videoDescription" placeholder="Description (optional)" style="width: 100%; padding: 8px;">
+        <input type="file" id="videoFile" accept="video/*">
+        <button onclick="uploadVideo()">Upload</button>
+        <p id="uploadStatus"></p>
+    </div>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-
-        <!-- View: Home (Video Grid) -->
-        <div id="view-home" class="animate-fade-in">
-            <h1 class="text-3xl font-bold mb-8">Recent Videos</h1>
-            <div id="videoGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Grid Items Injected via JS -->
-            </div>
-        </div>
-
-        <!-- View: Watch (Player + Sidebar) -->
-        <div id="view-watch" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-            <!-- Left: Player -->
-            <div class="lg:col-span-2 space-y-4">
-                <div class="aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-white/10">
-                    <video id="mainPlayer" controls class="w-full h-full"></video>
-                </div>
-                <div>
-                    <h2 id="playerTitle" class="text-2xl font-bold">Video Title</h2>
-                    <p id="playerDate" class="text-slate-400 text-sm">Uploaded on ...</p>
-                </div>
-            </div>
-
-            <!-- Right: Sidebar List -->
-            <div class="lg:col-span-1">
-                <h3 class="text-xl font-semibold mb-4 text-slate-300">Up Next</h3>
-                <div id="sidebarList" class="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2 scrollbar-hide">
-                    <!-- Sidebar Items Injected via JS -->
-                </div>
-            </div>
-
-        </div>
-
-    </main>
-
-    <!-- Upload Modal -->
-    <div id="uploadModal"
-        class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div
-            class="bg-slate-800 rounded-2xl w-full max-w-md p-6 border border-white/10 shadow-2xl transform transition-all">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold">Upload New Video</h3>
-                <button onclick="document.getElementById('uploadModal').classList.add('hidden')"
-                    class="text-slate-400 hover:text-white">&times;</button>
-            </div>
-
-            <div class="space-y-4">
-                <div class="border-2 border-dashed border-slate-600 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer"
-                    onclick="document.getElementById('videoFile').click()">
-                    <input type="file" id="videoFile" accept="video/*" class="hidden" onchange="handleFileSelect(this)">
-                    <div id="uploadArea">
-                        <p class="text-slate-400">Click to browse or drag file here</p>
-                    </div>
-                </div>
-                <button onclick="uploadVideo()" id="uploadBtn"
-                    class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-semibold transition-all">Upload</button>
-                <p id="uploadStatus" class="text-center text-sm text-slate-400"></p>
-            </div>
-        </div>
+    <div class="container">
+        <h2>2. Watch Video</h2>
+        <input type="text" id="playFilename" placeholder="Enter filename (e.g. 1700000_video.mp4)">
+        <button onclick="playVideo()">Play</button>
+        <br>
+        <video id="videoPlayer" controls>
+            Your browser does not support the video tag.
+        </video>
     </div>
 
     <script>
-        const API_BASE = '/api/videos';
-        let allVideos = [];
-
-        async function loadVideos() {
-            try {
-                const res = await fetch(API_BASE);
-                allVideos = await res.json();
-                renderHomeGrid();
-                renderSidebar();
-            } catch (e) {
-                console.error("Failed to load videos", e);
-            }
-        }
-
-        function renderHomeGrid() {
-            const grid = document.getElementById('videoGrid');
-            grid.innerHTML = '';
-
-            allVideos.forEach(video => {
-                const card = document.createElement('div');
-                card.className = 'group bg-slate-800 rounded-xl overflow-hidden hover:transform hover:scale-[1.02] transition-all duration-300 border border-white/5 shadow-xl cursor-pointer';
-                card.onclick = () => playVideo(video);
-                card.innerHTML = `
-                    <div class="aspect-video bg-slate-900 relative group-hover:opacity-90 transition-opacity">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <span class="bg-white/20 p-3 rounded-full backdrop-blur-sm group-hover:bg-blue-500 transition-colors">▶</span>
-                        </div>
-                    </div>
-                    <div class="p-4">
-                        <h3 class="font-semibold text-lg truncate">${video.title}</h3>
-                        <p class="text-slate-400 text-sm mt-1">${new Date(video.uploadedAt).toLocaleDateString()}</p>
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-        }
-
-        function renderSidebar() {
-            const list = document.getElementById('sidebarList');
-            list.innerHTML = '';
-
-            allVideos.forEach(video => {
-                const item = document.createElement('div');
-                item.className = 'flex gap-3 p-2 rounded-lg hover:bg-slate-800 cursor-pointer group transition-colors';
-                item.onclick = () => playVideo(video);
-                item.innerHTML = `
-                    <div class="w-32 aspect-video bg-slate-900 rounded-lg overflow-hidden relative flex-shrink-0">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <span class="text-xs bg-black/50 px-1 rounded text-white group-hover:text-blue-400">▶</span>
-                        </div>
-                    </div>
-                    <div class="flex-grow min-w-0 flex flex-col justify-center">
-                        <h4 class="text-sm font-semibold truncate group-hover:text-blue-400 transition-colors">${video.title}</h4>
-                        <p class="text-xs text-slate-500 mt-1">${new Date(video.uploadedAt).toLocaleDateString()}</p>
-                    </div>
-                `;
-                list.appendChild(item);
-            });
-        }
-
-        function playVideo(video) {
-            // Switch views
-            document.getElementById('view-home').classList.add('hidden');
-            document.getElementById('view-watch').classList.remove('hidden');
-
-            // Update Player
-            const player = document.getElementById('mainPlayer');
-            document.getElementById('playerTitle').innerText = video.title;
-            document.getElementById('playerDate').innerText = 'Uploaded on ' + new Date(video.uploadedAt).toLocaleString();
-
-            player.src = `${API_BASE}/${video.filename}`;
-            player.play();
-
-            // Scroll to top
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function showHome() {
-            const player = document.getElementById('mainPlayer');
-            player.pause();
-
-            document.getElementById('view-home').classList.remove('hidden');
-            document.getElementById('view-watch').classList.add('hidden');
-        }
-
-        function handleFileSelect(input) {
-            const file = input.files[0];
-            if (file) {
-                document.getElementById('uploadArea').innerHTML = `<p class="text-white font-medium">${file.name}</p>`;
-            }
-        }
+        const API_BASE = 'http://localhost:8080/api/videos';
 
         async function uploadVideo() {
             const fileInput = document.getElementById('videoFile');
+            const titleInput = document.getElementById('videoTitle');
+            const descInput = document.getElementById('videoDescription');
+            
             const file = fileInput.files[0];
+            const title = titleInput.value.trim();
+            
             if (!file) {
                 alert('Please select a file');
+                return;
+            }
+            
+            if (!title) {
+                alert('Please enter a video title');
                 return;
             }
 
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('title', title);
+            formData.append('description', descInput.value.trim() || '');
 
-            const btn = document.getElementById('uploadBtn');
             const status = document.getElementById('uploadStatus');
-            btn.disabled = true;
-            btn.innerText = 'Uploading...';
-            status.innerText = 'Please wait...';
+            status.textContent = 'Uploading...';
 
+            // Debug: Log FormData
+            console.log('Uploading with:');
+            console.log('- Title:', title);
+            console.log('- Description:', descInput.value.trim() || '(empty)');
+            console.log('- File:', file.name);
+            
             try {
                 const response = await fetch(`${API_BASE}/upload`, {
                     method: 'POST',
+                    // DON'T set Content-Type - browser will set it with boundary for multipart
                     body: formData
                 });
 
                 if (response.ok) {
-                    status.innerText = 'Upload successful!';
-                    document.getElementById('uploadModal').classList.add('hidden');
-                    loadVideos(); // Refresh list
+                    const result = await response.json();
+                    status.textContent = 'Upload successful! Video ID: ' + result.id;
+                    titleInput.value = '';
+                    descInput.value = '';
                     fileInput.value = '';
-                    document.getElementById('uploadArea').innerHTML = '<p class="text-slate-400">Click to browse or drag file here</p>';
                 } else {
                     const err = await response.text();
-                    status.innerText = 'Error: ' + err;
+                    status.textContent = 'Error: ' + err;
                 }
             } catch (e) {
-                status.innerText = 'Error: ' + e.message;
-            } finally {
-                btn.disabled = false;
-                btn.innerText = 'Upload';
+                status.textContent = 'Error: ' + e.message;
             }
         }
 
-        // Initial Load
-        loadVideos();
+        function playVideo() {
+            const filename = document.getElementById('playFilename').value;
+            if (!filename) {
+                alert('Please enter a filename');
+                return;
+            }
+            const videoPlayer = document.getElementById('videoPlayer');
+            videoPlayer.src = `${API_BASE}/${filename}`;
+            videoPlayer.play();
+        }
     </script>
 </body>
 
