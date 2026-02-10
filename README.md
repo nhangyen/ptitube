@@ -96,16 +96,29 @@ Lệnh này sẽ khởi động 3 container:
 - Tắt tường lửa (Firewall) trên máy tính hoặc mở port 8080.
 - Kiểm tra lại `HOST_IP` trong `Config.ts`.
 
-**2. Lỗi Upload Video (500 Error)**
-- **PostgreSQL Enum Type**: Backend đã được cấu hình để map Enum Java sang `VARCHAR` trong DB. Nếu gặp lỗi liên quan đến `video_status` hoặc `user_role`, hãy đảm bảo bạn đang dùng image docker mới nhất (rebuild lại bằng `docker-compose up -d --build backend`).
-- **File Size**: Mặc định Spring Boot giới hạn file upload. Đã cấu hình tăng giới hạn trong `application.properties`.
-
-**3. Reset Dữ liệu**
-- Để xóa sạch dữ liệu và chạy lại từ đầu:
+**2. Lỗi Database & Enum (Type Mismatch)**
+- **Khắc phục**: Database đã được chuyển từ PostgreSQL Native ENUM sang `VARCHAR` với `CHECK` constraints để tương thích tốt nhất với Hibernate.
+- **Lưu ý**: Nếu gặp lỗi `column "role" is of type user_role but expression is of type character varying`, hãy chạy:
   ```bash
   docker-compose down -v
   docker-compose up -d --build
   ```
+
+**3. Reset Dữ liệu & Storage**
+- Để xóa sạch dữ liệu DB và video trong MinIO:
+  ```bash
+  docker-compose down -v
+  docker-compose up -d --build
+  ```
+
+---
+
+## 🛠 Tính năng kỹ thuật nổi bật
+- **UUID**: Sử dụng UUID v4 cho toàn bộ các Primary Key để bảo mật và dễ dàng mở rộng.
+- **Database Triggers**: 
+  - Tự động hóa cập nhật `search_vector` cho tìm kiếm toàn văn (Full-Text Search).
+  - Tự động khởi tạo và cập nhật thống kê (`like_count`, `view_count`) thông qua Triggers để giảm tải cho Backend.
+- **Object Storage**: Tích hợp MinIO (S3 compatible) để lưu trữ video dung lượng lớn một cách chuyên nghiệp.
 
 ---
 

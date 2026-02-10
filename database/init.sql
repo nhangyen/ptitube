@@ -1,18 +1,18 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ENUMs
-DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('user', 'moderator', 'admin');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+-- ENUMs replaced with VARCHAR + CHECK constraints for Hibernate compatibility
+-- DO $$ BEGIN
+--     CREATE TYPE user_role AS ENUM ('user', 'moderator', 'admin');
+-- EXCEPTION
+--     WHEN duplicate_object THEN null;
+-- END $$;
 
-DO $$ BEGIN
-    CREATE TYPE video_status AS ENUM ('pending', 'active', 'failed', 'banned');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+-- DO $$ BEGIN
+--     CREATE TYPE video_status AS ENUM ('pending', 'active', 'failed', 'banned');
+-- EXCEPTION
+--     WHEN duplicate_object THEN null;
+-- END $$;
 
 -- Users Table
 CREATE TABLE IF NOT EXISTS users (
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     avatar_url VARCHAR(255),
     bio TEXT,
-    role user_role DEFAULT 'user',
+    role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin')),
     is_verified BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS videos (
     duration_seconds INTEGER,
     format VARCHAR(20),
     file_size BIGINT,
-    status video_status DEFAULT 'pending',
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'failed', 'banned')),
     search_vector TSVECTOR,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
