@@ -25,6 +25,9 @@ public class VideoService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private AiAnalysisService aiAnalysisService;
+
     public Video uploadVideo(MultipartFile file, String title, String description, String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -39,9 +42,11 @@ public class VideoService {
         video.setFileSize(file.getSize());
         video.setFormat(file.getContentType());
         video.setUser(user);
-        video.setStatus(VideoStatus.active); // Direct active for MVP
+        video.setStatus(VideoStatus.pending);
 
-        return videoRepository.save(video);
+        Video saved = videoRepository.save(video);
+        aiAnalysisService.analyzeVideo(saved.getId());
+        return saved;
     }
 
     public List<Video> getAllVideos() {

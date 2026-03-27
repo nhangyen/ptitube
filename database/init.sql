@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS videos (
     duration_seconds INTEGER,
     format VARCHAR(20),
     file_size BIGINT,
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'failed', 'banned')),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'failed', 'banned', 'reviewing')),
     search_vector TSVECTOR,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -167,3 +167,118 @@ DROP TRIGGER IF EXISTS trg_init_video_stats ON videos;
 CREATE TRIGGER trg_init_video_stats
 AFTER INSERT ON videos
 FOR EACH ROW EXECUTE FUNCTION init_video_stats();
+
+-- ============================================================
+-- MODERATION & SCENE-BASED TAGGING TABLES
+-- ============================================================
+
+-- Tags (master data)
+CREATE TABLE IF NOT EXISTS tags (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    category VARCHAR(50),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Video Scenes (AI-extracted)
+CREATE TABLE IF NOT EXISTS video_scenes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    scene_index INTEGER NOT NULL,
+    start_time DOUBLE PRECISION NOT NULL,
+    end_time DOUBLE PRECISION NOT NULL,
+    thumbnail_url VARCHAR(255),
+    ai_summary TEXT,
+    status VARCHAR(20) DEFAULT 'auto_tagged' CHECK (status IN ('auto_tagged', 'reviewed', 'revised')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Scene Tags (composite PK: scene + tag)
+CREATE TABLE IF NOT EXISTS scene_tags (
+    scene_id UUID NOT NULL REFERENCES video_scenes(id) ON DELETE CASCADE,
+    tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    source VARCHAR(20) NOT NULL CHECK (source IN ('ai', 'admin', 'uploader')),
+    confidence DOUBLE PRECISION,
+    assigned_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (scene_id, tag_id)
+);
+
+-- Video Tags (aggregated, composite PK: video + tag)
+CREATE TABLE IF NOT EXISTS video_tags (
+    video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    source VARCHAR(20) NOT NULL CHECK (source IN ('ai', 'admin', 'uploader', 'aggregated')),
+    weight DOUBLE PRECISION DEFAULT 1.0,
+    assigned_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    PRIMARY KEY (video_id, tag_id)
+);
+
+-- AI Analysis Jobs
+CREATE TABLE IF NOT EXISTS ai_analysis_jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    model_name VARCHAR(100) NOT NULL,
+    model_version VARCHAR(50),
+    status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+    scenes_detected INTEGER,
+    result_summary JSONB,
+    error_message TEXT,
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Moderation Queue
+CREATE TABLE IF NOT EXISTS moderation_queue (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    ai_job_id UUID REFERENCES ai_analysis_jobs(id) ON DELETE SET NULL,
+    priority VARCHAR(10) DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'approved', 'rejected')),
+    assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+    auto_flags JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Moderation Actions (audit trail)
+CREATE TABLE IF NOT EXISTS moderation_actions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    queue_id UUID NOT NULL REFERENCES moderation_queue(id) ON DELETE CASCADE,
+    admin_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    action VARCHAR(20) NOT NULL CHECK (action IN ('approve', 'reject', 'revise_tags', 'flag', 'escalate', 'ban')),
+    scope VARCHAR(20) CHECK (scope IN ('video', 'scene')),
+    target_scene_id UUID REFERENCES video_scenes(id) ON DELETE SET NULL,
+    reason TEXT,
+    tags_added UUID[],
+    tags_removed UUID[],
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Moderation Rules (automation)
+CREATE TABLE IF NOT EXISTS moderation_rules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) NOT NULL,
+    rule_type VARCHAR(20) NOT NULL CHECK (rule_type IN ('auto_flag', 'auto_reject', 'auto_tag', 'auto_priority')),
+    conditions JSONB NOT NULL,
+    actions JSONB NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for moderation tables
+CREATE INDEX IF NOT EXISTS idx_video_scenes_video ON video_scenes(video_id);
+CREATE INDEX IF NOT EXISTS idx_scene_tags_scene ON scene_tags(scene_id);
+CREATE INDEX IF NOT EXISTS idx_scene_tags_tag ON scene_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_video_tags_video ON video_tags(video_id);
+CREATE INDEX IF NOT EXISTS idx_video_tags_tag ON video_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_ai_jobs_video ON ai_analysis_jobs(video_id);
+CREATE INDEX IF NOT EXISTS idx_ai_jobs_status ON ai_analysis_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_mod_queue_status ON moderation_queue(status);
+CREATE INDEX IF NOT EXISTS idx_mod_queue_video ON moderation_queue(video_id);
+CREATE INDEX IF NOT EXISTS idx_mod_actions_queue ON moderation_actions(queue_id);
