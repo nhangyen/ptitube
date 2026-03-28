@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as api from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 import VideoTrimmer from '@/components/VideoTrimmer';
 
 export default function UploadScreen() {
+  const { user, token, login, register, logout, isLoading: authLoading } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
-  const [token, setToken] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  
+
   // Video trim state
   const [selectedVideo, setSelectedVideo] = useState<{ uri: string; name: string; type: string } | null>(null);
   const [showTrimmer, setShowTrimmer] = useState(false);
@@ -26,11 +27,10 @@ export default function UploadScreen() {
       Alert.alert('Error', 'Please enter username and password');
       return;
     }
-    
+
     setLoading(true);
     try {
-      await api.login(username, password);
-      setToken(api.getAuthToken());
+      await login(username, password);
       Alert.alert('Success', 'Logged in successfully!');
     } catch (error: any) {
       console.error(error);
@@ -45,11 +45,10 @@ export default function UploadScreen() {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    
+
     setLoading(true);
     try {
-      await api.register(username, email, password);
-      setToken(api.getAuthToken());
+      await register(username, email, password);
       Alert.alert('Success', 'Account created successfully!');
     } catch (error: any) {
       console.error(error);
@@ -119,8 +118,7 @@ export default function UploadScreen() {
   };
 
   const handleLogout = () => {
-    setToken(null);
-    api.setAuthToken(null);
+    logout();
   };
 
   return (

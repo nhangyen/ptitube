@@ -42,7 +42,7 @@ public class VideoService {
         video.setFileSize(file.getSize());
         video.setFormat(file.getContentType());
         video.setUser(user);
-        video.setStatus(VideoStatus.pending);
+        video.setStatus(VideoStatus.active);
 
         Video saved = videoRepository.save(video);
         aiAnalysisService.analyzeVideo(saved.getId());
