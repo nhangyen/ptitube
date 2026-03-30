@@ -48,7 +48,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (username: string, password: string) => {
     const response = await api.login(username, password);
-    const { token: newToken, user: userData } = response;
+    const newToken = response.token;
+    
+    // Backend only returns token and username, so we construct a user object
+    const userData = {
+      id: '',
+      username: response.username || username,
+      email: '',
+    };
     
     setToken(newToken);
     setUser(userData);

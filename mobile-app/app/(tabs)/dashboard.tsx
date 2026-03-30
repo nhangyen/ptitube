@@ -86,8 +86,15 @@ export default function DashboardScreen() {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchData}>
-          <Text style={styles.retryText}>Retry</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => {
+          // Navigate to explore/login tab
+          // @ts-ignore
+          import('expo-router').then(({ router }) => router.push('/explore'));
+        }}>
+          <Text style={styles.retryText}>Đăng nhập</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.retryButton, { marginTop: 15, backgroundColor: '#333' }]} onPress={fetchData}>
+          <Text style={styles.retryText}>Thử lại</Text>
         </TouchableOpacity>
       </View>
     );

@@ -67,12 +67,15 @@ export default function SocialActions({
 
     try {
       await api.toggleLike(videoId);
-    } catch (error) {
+    } catch (error: any) {
       // Revert on error
       setIsLiked(!newLiked);
       setLikeCount(prev => !newLiked ? prev + 1 : prev - 1);
       onLikeChange(!newLiked);
       console.error('Error toggling like:', error);
+      if (error.response?.status === 401) {
+        Alert.alert('Chưa đăng nhập', 'Vui lòng đăng nhập để thích video này!');
+      }
     }
   };
 
@@ -83,10 +86,13 @@ export default function SocialActions({
 
     try {
       await api.toggleFollow(userId);
-    } catch (error) {
+    } catch (error: any) {
       setIsFollowing(!newFollowing);
       onFollowChange(!newFollowing);
       console.error('Error toggling follow:', error);
+      if (error.response?.status === 401) {
+        Alert.alert('Chưa đăng nhập', 'Vui lòng đăng nhập để theo dõi!');
+      }
     }
   };
 
