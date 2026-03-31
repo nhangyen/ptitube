@@ -83,8 +83,8 @@ public class ModerationController {
 
     // ==================== ACTIONS ====================
 
-    @PostMapping("/queue/{queueId}/approve")
-    public ResponseEntity<?> approveVideo(
+    @PostMapping("/queue/{queueId}/review")
+    public ResponseEntity<?> markReviewed(
             @PathVariable UUID queueId,
             @RequestBody(required = false) ModerationActionRequest request,
             Authentication authentication) {
@@ -92,23 +92,9 @@ public class ModerationController {
         if (userId == null || !isModerator(authentication)) {
             return ResponseEntity.status(403).body(Map.of("error", "Access denied"));
         }
-        String reason = request != null ? request.getReason() : null;
-        moderationService.approveVideo(queueId, userId, reason);
-        return ResponseEntity.ok(Map.of("message", "Video approved"));
-    }
-
-    @PostMapping("/queue/{queueId}/reject")
-    public ResponseEntity<?> rejectVideo(
-            @PathVariable UUID queueId,
-            @RequestBody(required = false) ModerationActionRequest request,
-            Authentication authentication) {
-        UUID userId = getCurrentUserId(authentication);
-        if (userId == null || !isModerator(authentication)) {
-            return ResponseEntity.status(403).body(Map.of("error", "Access denied"));
-        }
-        String reason = request != null ? request.getReason() : null;
-        moderationService.rejectVideo(queueId, userId, reason);
-        return ResponseEntity.ok(Map.of("message", "Video rejected"));
+        String notes = request != null ? request.getReason() : null;
+        moderationService.markReviewed(queueId, userId, notes);
+        return ResponseEntity.ok(Map.of("message", "Tags reviewed"));
     }
 
     // ==================== SCENE TAGS ====================

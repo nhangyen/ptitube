@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -33,6 +35,7 @@ public class AiAnalysisJob {
     @Column(name = "scenes_detected")
     private Integer scenesDetected;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "result_summary", columnDefinition = "jsonb")
     private String resultSummary;
 

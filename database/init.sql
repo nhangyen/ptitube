@@ -237,7 +237,7 @@ CREATE TABLE IF NOT EXISTS moderation_queue (
     video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
     ai_job_id UUID REFERENCES ai_analysis_jobs(id) ON DELETE SET NULL,
     priority VARCHAR(10) DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'approved', 'rejected')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'reviewed')),
     assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
     auto_flags JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

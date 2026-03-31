@@ -77,6 +77,12 @@ public class AiAnalysisService {
             jobRepository.save(job);
 
             aggregateVideoTags(video);
+
+            // Video tự động lên feed sau khi AI gán nhãn xong
+            video.setStatus(VideoStatus.active);
+            videoRepository.save(video);
+
+            // Tạo queue entry để admin review nhãn nếu cần
             createModerationQueueEntry(video, job);
 
             logger.info("AI analysis completed for video {}: {} scenes detected", videoId, scenes.size());
@@ -86,6 +92,10 @@ public class AiAnalysisService {
             job.setErrorMessage(e.getMessage());
             job.setCompletedAt(LocalDateTime.now());
             jobRepository.save(job);
+
+            // AI lỗi vẫn cho video lên feed, admin review sau
+            video.setStatus(VideoStatus.active);
+            videoRepository.save(video);
 
             createModerationQueueEntry(video, job);
         }

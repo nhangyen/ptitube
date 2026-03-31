@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import * as api from '@/services/api';
 import ModerationVideoDetail from '@/components/ModerationVideoDetail';
 
-const STATUS_FILTERS = ['pending', 'in_review', 'approved', 'rejected'];
+const STATUS_FILTERS = ['pending', 'in_review', 'reviewed'];
 
 interface QueueItem {
   queueId: string;
@@ -63,32 +63,14 @@ export default function ModerationScreen() {
     fetchQueue();
   };
 
-  const handleApprove = async (queueId: string) => {
-    Alert.prompt('Approve Video', 'Reason (optional):', async (reason) => {
-      try {
-        await api.approveVideo(queueId, reason || undefined);
-        fetchQueue();
-        setSelectedItem(null);
-      } catch (error) {
-        Alert.alert('Error', 'Failed to approve video');
-      }
-    });
-  };
-
-  const handleReject = async (queueId: string) => {
-    Alert.prompt('Reject Video', 'Reason:', async (reason) => {
-      if (!reason) {
-        Alert.alert('Error', 'Reason is required for rejection');
-        return;
-      }
-      try {
-        await api.rejectVideo(queueId, reason);
-        fetchQueue();
-        setSelectedItem(null);
-      } catch (error) {
-        Alert.alert('Error', 'Failed to reject video');
-      }
-    });
+  const handleMarkReviewed = async (queueId: string) => {
+    try {
+      await api.markReviewed(queueId);
+      fetchQueue();
+      setSelectedItem(null);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to mark as reviewed');
+    }
   };
 
   if (!isModerator) {
@@ -105,8 +87,7 @@ export default function ModerationScreen() {
       <ModerationVideoDetail
         item={selectedItem}
         onBack={() => setSelectedItem(null)}
-        onApprove={() => handleApprove(selectedItem.queueId)}
-        onReject={() => handleReject(selectedItem.queueId)}
+        onMarkReviewed={() => handleMarkReviewed(selectedItem.queueId)}
       />
     );
   }

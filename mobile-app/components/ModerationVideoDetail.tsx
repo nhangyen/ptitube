@@ -43,11 +43,10 @@ interface SceneData {
 interface Props {
   item: QueueItem;
   onBack: () => void;
-  onApprove: () => void;
-  onReject: () => void;
+  onMarkReviewed: () => void;
 }
 
-export default function ModerationVideoDetail({ item, onBack, onApprove, onReject }: Props) {
+export default function ModerationVideoDetail({ item, onBack, onMarkReviewed }: Props) {
   const [scenes, setScenes] = useState<SceneData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedScene, setSelectedScene] = useState<SceneData | null>(null);
@@ -144,11 +143,8 @@ export default function ModerationVideoDetail({ item, onBack, onApprove, onRejec
 
       {(item.status === 'pending' || item.status === 'in_review') && (
         <View style={styles.actionBar}>
-          <TouchableOpacity style={styles.rejectButton} onPress={onReject}>
-            <Text style={styles.actionText}>Reject</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.approveButton} onPress={onApprove}>
-            <Text style={styles.actionText}>Approve</Text>
+          <TouchableOpacity style={styles.reviewedButton} onPress={onMarkReviewed}>
+            <Text style={styles.actionText}>Mark Reviewed</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -175,7 +171,6 @@ const styles = StyleSheet.create({
   sceneTime: { color: '#888', fontSize: 11, marginTop: 4 },
   sceneTagCount: { color: '#666', fontSize: 10, marginTop: 2 },
   actionBar: { flexDirection: 'row', padding: 16, gap: 12, paddingBottom: 40 },
-  rejectButton: { flex: 1, backgroundColor: '#e74c3c', borderRadius: 8, padding: 14, alignItems: 'center' },
-  approveButton: { flex: 1, backgroundColor: '#2ecc71', borderRadius: 8, padding: 14, alignItems: 'center' },
+  reviewedButton: { flex: 1, backgroundColor: '#3498db', borderRadius: 8, padding: 14, alignItems: 'center' },
   actionText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });

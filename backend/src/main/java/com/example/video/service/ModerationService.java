@@ -79,48 +79,21 @@ public class ModerationService {
     }
 
     @Transactional
-    public void approveVideo(UUID queueId, UUID adminId, String reason) {
+    public void markReviewed(UUID queueId, UUID adminId, String notes) {
         ModerationQueue queue = queueRepository.findById(queueId)
                 .orElseThrow(() -> new RuntimeException("Queue item not found"));
         User admin = userRepository.findById(adminId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        queue.setStatus("approved");
+        queue.setStatus("reviewed");
         queueRepository.save(queue);
-
-        Video video = queue.getVideo();
-        video.setStatus(VideoStatus.active);
-        videoRepository.save(video);
 
         ModerationAction action = new ModerationAction();
         action.setQueue(queue);
         action.setAdmin(admin);
-        action.setAction("approve");
+        action.setAction("review");
         action.setScope("video");
-        action.setReason(reason);
-        actionRepository.save(action);
-    }
-
-    @Transactional
-    public void rejectVideo(UUID queueId, UUID adminId, String reason) {
-        ModerationQueue queue = queueRepository.findById(queueId)
-                .orElseThrow(() -> new RuntimeException("Queue item not found"));
-        User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        queue.setStatus("rejected");
-        queueRepository.save(queue);
-
-        Video video = queue.getVideo();
-        video.setStatus(VideoStatus.banned);
-        videoRepository.save(video);
-
-        ModerationAction action = new ModerationAction();
-        action.setQueue(queue);
-        action.setAdmin(admin);
-        action.setAction("reject");
-        action.setScope("video");
-        action.setReason(reason);
+        action.setReason(notes);
         actionRepository.save(action);
     }
 

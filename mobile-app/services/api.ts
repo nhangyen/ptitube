@@ -170,13 +170,8 @@ export const assignModerationItem = async (queueId: string) => {
   return response.data;
 };
 
-export const approveVideo = async (queueId: string, reason?: string) => {
-  const response = await api.post(`/moderation/queue/${queueId}/approve`, { reason });
-  return response.data;
-};
-
-export const rejectVideo = async (queueId: string, reason?: string) => {
-  const response = await api.post(`/moderation/queue/${queueId}/reject`, { reason });
+export const markReviewed = async (queueId: string, notes?: string) => {
+  const response = await api.post(`/moderation/queue/${queueId}/review`, { reason: notes });
   return response.data;
 };
 

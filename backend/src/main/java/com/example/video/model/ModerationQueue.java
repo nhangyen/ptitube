@@ -4,7 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -36,6 +38,7 @@ public class ModerationQueue {
     @JoinColumn(name = "assigned_to")
     private User assignedTo;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "auto_flags", columnDefinition = "jsonb")
     private String autoFlags;
 
