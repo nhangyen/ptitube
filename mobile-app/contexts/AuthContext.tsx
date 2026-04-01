@@ -7,6 +7,7 @@ interface User {
   username: string;
   email: string;
   avatarUrl?: string;
+  role?: string;
 }
 
 interface AuthContextType {
@@ -49,17 +50,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (username: string, password: string) => {
     const response = await api.login(username, password);
     const newToken = response.token;
-    
-    // Backend only returns token and username, so we construct a user object
-    const userData = {
-      id: '',
-      username: response.username || username,
-      email: '',
+
+    const userData: User = {
+      id: response.id || '',
+      username: response.username,
+      email: response.email || '',
+      role: response.role,
     };
-    
-    setToken(newToken);
-    setUser(userData);
-    
+
+
     await AsyncStorage.setItem('authToken', newToken);
     await AsyncStorage.setItem('user', JSON.stringify(userData));
   };

@@ -38,6 +38,9 @@ database/data/
 *.mp4
 *.log
 
+# Credentials
+credentials/
+
 # Environment
 .env
 .env.local

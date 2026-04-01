@@ -8,6 +8,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Nút "Tạo" tròn ở giữa tab bar — mở fullscreen Create flow
@@ -32,6 +33,8 @@ function CreateTabButton({ children, ...props }: any) {
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const isModerator = user?.role === 'admin' || user?.role === 'moderator';
 
   return (
     <Tabs
@@ -73,6 +76,14 @@ export default function TabLayout() {
         options={{
           title: 'Thống kê',
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="moderation"
+        options={{
+          title: 'Moderate',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="shield.fill" color={color} />,
+          href: isModerator ? undefined : null,
         }}
       />
     </Tabs>
