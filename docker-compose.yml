@@ -51,6 +51,10 @@ services:
       MINIO_URL: http://minio:9000
       MINIO_ACCESS_KEY: minio_admin
       MINIO_SECRET_KEY: minio_password
+      GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/google-service-account.json
+      VIDEO_AI_ENABLED: ${VIDEO_AI_ENABLED:-false}
+    volumes:
+      - ./credentials:/app/credentials:ro
     ports:
       - "8080:8080"
     networks:

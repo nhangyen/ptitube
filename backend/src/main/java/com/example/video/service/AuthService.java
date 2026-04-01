@@ -60,6 +60,10 @@ public class AuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = tokenProvider.generateToken(authentication);
 
-        return new AuthResponse(jwt, request.getUsername());
+        String role = userRepository.findByUsername(request.getUsername())
+                .map(user -> user.getRole().name())
+                .orElse("user");
+
+        return new AuthResponse(jwt, request.getUsername(), role);
     }
 }

@@ -149,4 +149,45 @@ export const getCreatorDashboard = async () => {
   return response.data;
 };
 
+// ==================== MODERATION ====================
+export const getModerationQueue = async (status?: string, page: number = 0, size: number = 20) => {
+  const response = await api.get('/moderation/queue', { params: { status, page, size } });
+  return response.data;
+};
+
+export const getModerationItem = async (queueId: string) => {
+  const response = await api.get(`/moderation/queue/${queueId}`);
+  return response.data;
+};
+
+export const getVideoScenes = async (queueId: string) => {
+  const response = await api.get(`/moderation/queue/${queueId}/scenes`);
+  return response.data;
+};
+
+export const assignModerationItem = async (queueId: string) => {
+  const response = await api.post(`/moderation/queue/${queueId}/assign`);
+  return response.data;
+};
+
+export const markReviewed = async (queueId: string, notes?: string) => {
+  const response = await api.post(`/moderation/queue/${queueId}/review`, { reason: notes });
+  return response.data;
+};
+
+export const addSceneTag = async (sceneId: string, tagId: string) => {
+  const response = await api.post(`/moderation/scenes/${sceneId}/tags`, { tagId });
+  return response.data;
+};
+
+export const removeSceneTag = async (sceneId: string, tagId: string) => {
+  const response = await api.delete(`/moderation/scenes/${sceneId}/tags/${tagId}`);
+  return response.data;
+};
+
+export const getModerationTags = async () => {
+  const response = await api.get('/moderation/tags');
+  return response.data;
+};
+
 export default api;
