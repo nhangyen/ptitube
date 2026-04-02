@@ -1,97 +1,91 @@
-/**
- * Preview Screen — Xem trước video đã xuất & Đăng tải
- *
- * Phát video đã export full-screen.
- * Form nhập title, description.
- * Nút "Đăng video" → upload lên server.
- * Nút "Quay lại editor" để chỉnh sửa tiếp.
- */
-
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
   StyleSheet,
-  View,
   Text,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-  Dimensions,
+  View,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Video, ResizeMode } from 'expo-av';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ResizeMode, Video } from 'expo-av';
 import * as api from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { cleanupTmpFiles } from '@/services/ffmpegService';
+import { cleanupLocalFiles, cleanupTmpFiles } from '@/services/ffmpegService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PreviewScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ videoUri: string }>();
+  const params = useLocalSearchParams<{ videoUri: string; sourceVideoUri?: string }>();
   const videoUri = params.videoUri || '';
+  const sourceVideoUri = params.sourceVideoUri || '';
   const { token } = useAuth();
 
   const videoRef = useRef<Video>(null);
-
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
 
+  useEffect(() => {
+    const currentVideo = videoRef.current;
+    return () => {
+      if (currentVideo) {
+        void currentVideo.unloadAsync().catch(() => undefined);
+      }
+    };
+  }, []);
+
   const handleUpload = useCallback(async () => {
     if (!token) {
-      Alert.alert('Yêu cầu đăng nhập', 'Bạn cần đăng nhập để đăng video.');
+      Alert.alert('Yeu cau dang nhap', 'Ban can dang nhap de dang video.');
       return;
     }
 
     if (!videoUri) {
-      Alert.alert('Lỗi', 'Không tìm thấy video để đăng.');
+      Alert.alert('Loi', 'Khong tim thay video de dang.');
       return;
     }
 
-    const videoTitle = title.trim() || 'Video của tôi';
-    const videoDesc = description.trim() || '';
+    const file = {
+      uri: videoUri,
+      name: `video_${Date.now()}.mp4`,
+      type: 'video/mp4',
+    };
 
     setIsUploading(true);
     setUploadProgress(0);
 
     try {
-      const file = {
-        uri: videoUri,
-        name: `video_${Date.now()}.mp4`,
-        type: 'video/mp4',
-      };
-
-      await api.uploadVideo(file, videoTitle, videoDesc, (progress) => {
+      await api.uploadVideo(file, title.trim() || 'Video cua toi', description.trim(), (progress) => {
         setUploadProgress(progress);
       });
 
-      // Dọn file tạm FFmpeg
+      await cleanupLocalFiles([videoUri, sourceVideoUri]);
       await cleanupTmpFiles();
 
-      Alert.alert('Thành công! 🎉', 'Video đã được đăng tải thành công.', [
+      Alert.alert('Thanh cong', 'Video da duoc dang tai thanh cong.', [
         {
-          text: 'Về trang chủ',
-          onPress: () => {
-            // Navigate back to feed
-            router.dismissAll();
-          },
+          text: 'Ve trang chu',
+          onPress: () => router.dismissAll(),
         },
       ]);
     } catch (error: any) {
       console.error('Upload error:', error);
       Alert.alert(
-        'Lỗi đăng tải',
-        error.response?.data?.message || 'Không thể đăng video. Vui lòng thử lại.'
+        'Loi dang tai',
+        error?.response?.data?.message || error?.message || 'Khong the dang video. Vui long thu lai.'
       );
     } finally {
       setIsUploading(false);
     }
-  }, [videoUri, title, description, token, router]);
+  }, [description, router, sourceVideoUri, title, token, videoUri]);
 
   const handleBack = () => {
     router.back();
@@ -111,9 +105,9 @@ export default function PreviewScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Không tìm thấy video.</Text>
+          <Text style={styles.errorText}>Khong tim thay video.</Text>
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.errorLink}>Quay lại</Text>
+            <Text style={styles.errorLink}>Quay lai</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -122,26 +116,24 @@ export default function PreviewScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Upload Overlay */}
-      {isUploading && (
+      {isUploading ? (
         <View style={styles.uploadOverlay}>
           <View style={styles.uploadModal}>
             <ActivityIndicator size="large" color="#34C759" />
-            <Text style={styles.uploadTitle}>Đang đăng video...</Text>
+            <Text style={styles.uploadTitle}>Dang dang video...</Text>
             <View style={styles.progressContainer}>
               <View style={[styles.progressBar, { width: `${uploadProgress}%` }]} />
             </View>
             <Text style={styles.progressText}>{uploadProgress}%</Text>
           </View>
         </View>
-      )}
+      ) : null}
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.headerBtn}>
-          <Text style={styles.headerBtnText}>← Sửa tiếp</Text>
+          <Text style={styles.headerBtnText}>Sua tiep</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Xem trước</Text>
+        <Text style={styles.headerTitle}>Xem truoc</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -150,45 +142,39 @@ export default function PreviewScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Video Preview */}
-        <TouchableOpacity
-          style={styles.videoContainer}
-          onPress={togglePlay}
-          activeOpacity={0.9}
-        >
+        <TouchableOpacity style={styles.videoContainer} onPress={togglePlay} activeOpacity={0.9}>
           <Video
             ref={videoRef}
             source={{ uri: videoUri }}
             style={styles.video}
             resizeMode={ResizeMode.CONTAIN}
-            shouldPlay={true}
-            isLooping={true}
+            shouldPlay
+            isLooping
           />
-          {!isPlaying && (
+          {!isPlaying ? (
             <View style={styles.playOverlay}>
               <View style={styles.playBtn}>
                 <Text style={styles.playIcon}>▶</Text>
               </View>
             </View>
-          )}
+          ) : null}
         </TouchableOpacity>
 
-        {/* Form */}
         <View style={styles.form}>
-          <Text style={styles.formLabel}>Tiêu đề</Text>
+          <Text style={styles.formLabel}>Tieu de</Text>
           <TextInput
             style={styles.input}
-            placeholder="Nhập tiêu đề video..."
+            placeholder="Nhap tieu de video..."
             placeholderTextColor="#666"
             value={title}
             onChangeText={setTitle}
             maxLength={100}
           />
 
-          <Text style={styles.formLabel}>Mô tả</Text>
+          <Text style={styles.formLabel}>Mo ta</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Nhập mô tả (không bắt buộc)..."
+            placeholder="Nhap mo ta (khong bat buoc)..."
             placeholderTextColor="#666"
             multiline
             numberOfLines={3}
@@ -197,21 +183,17 @@ export default function PreviewScreen() {
             maxLength={500}
           />
 
-          {/* Upload button */}
           <TouchableOpacity
             style={[styles.uploadBtn, isUploading && styles.uploadBtnDisabled]}
             onPress={handleUpload}
             disabled={isUploading}
             activeOpacity={0.8}
           >
-            <Text style={styles.uploadBtnText}>
-              {isUploading ? 'Đang đăng...' : '📤 Đăng video'}
-            </Text>
+            <Text style={styles.uploadBtnText}>{isUploading ? 'Dang dang...' : 'Dang video'}</Text>
           </TouchableOpacity>
 
-          {/* Back to editor */}
           <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
-            <Text style={styles.backBtnText}>← Quay lại chỉnh sửa</Text>
+            <Text style={styles.backBtnText}>Quay lai chinh sua</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -224,7 +206,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  // Error
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -239,7 +220,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 12,
   },
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -266,14 +246,12 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 80,
   },
-  // Scroll
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: 40,
   },
-  // Video
   videoContainer: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT * 0.45,
@@ -302,7 +280,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginLeft: 4,
   },
-  // Form
   form: {
     padding: 20,
     gap: 12,
@@ -326,7 +303,6 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  // Upload button
   uploadBtn: {
     backgroundColor: '#34C759',
     paddingVertical: 16,
@@ -342,7 +318,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
-  // Back button
   backBtn: {
     alignItems: 'center',
     paddingVertical: 12,
@@ -351,7 +326,6 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 14,
   },
-  // Upload overlay
   uploadOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.85)',

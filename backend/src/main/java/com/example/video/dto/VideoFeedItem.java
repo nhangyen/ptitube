@@ -1,6 +1,7 @@
 package com.example.video.dto;
 
 import lombok.Data;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -13,6 +14,7 @@ public class VideoFeedItem {
     private Integer durationSeconds;
     private UserSummary user;
     private VideoStatsDto stats;
+    private List<String> hashtags;
     private boolean likedByCurrentUser;
     private String createdAt;
     private double score; // For recommendation ranking

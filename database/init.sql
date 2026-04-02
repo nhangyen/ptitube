@@ -102,11 +102,25 @@ CREATE TABLE IF NOT EXISTS reports (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Notifications Table
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    actor_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    video_id UUID REFERENCES videos(id) ON DELETE CASCADE,
+    comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+    type VARCHAR(30) NOT NULL CHECK (type IN ('like', 'comment', 'follow', 'reply')),
+    message VARCHAR(255) NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_videos_user_id ON videos(user_id);
 CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
+CREATE INDEX IF NOT EXISTS idx_videos_status_created_at ON videos(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
 CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
 CREATE INDEX IF NOT EXISTS idx_likes_user ON likes(user_id);
@@ -118,6 +132,8 @@ CREATE INDEX IF NOT EXISTS idx_video_views_video ON video_views(video_id);
 CREATE INDEX IF NOT EXISTS idx_video_views_user ON video_views(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_video ON reports(video_id);
 CREATE INDEX IF NOT EXISTS idx_reports_reporter ON reports(reporter_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(recipient_id, is_read);
 
 -- GIN Index for Full Text Search
 CREATE INDEX IF NOT EXISTS idx_videos_search ON videos USING GIN(search_vector);
@@ -277,6 +293,7 @@ CREATE INDEX IF NOT EXISTS idx_scene_tags_scene ON scene_tags(scene_id);
 CREATE INDEX IF NOT EXISTS idx_scene_tags_tag ON scene_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_video_tags_video ON video_tags(video_id);
 CREATE INDEX IF NOT EXISTS idx_video_tags_tag ON video_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_video_tags_tag_video ON video_tags(tag_id, video_id);
 CREATE INDEX IF NOT EXISTS idx_ai_jobs_video ON ai_analysis_jobs(video_id);
 CREATE INDEX IF NOT EXISTS idx_ai_jobs_status ON ai_analysis_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_mod_queue_status ON moderation_queue(status);

@@ -1,19 +1,14 @@
-import { Tabs } from 'expo-router';
-import { useRouter } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useAuth } from '@/contexts/AuthContext';
 
-/**
- * Nút "Tạo" tròn ở giữa tab bar — mở fullscreen Create flow
- */
-function CreateTabButton({ children, ...props }: any) {
+function CreateTabButton(props: any) {
   const router = useRouter();
 
   return (
@@ -21,7 +16,7 @@ function CreateTabButton({ children, ...props }: any) {
       {...props}
       style={styles.createButtonContainer}
       onPress={() => router.push('/create')}
-      activeOpacity={0.8}
+      activeOpacity={0.85}
     >
       <View style={styles.createButton}>
         <IconSymbol size={30} name="plus" color="#fff" />
@@ -39,9 +34,9 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
         tabBarButton: HapticTab,
+        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         tabBarStyle: {
           backgroundColor: '#000',
           borderTopColor: '#222',
@@ -49,33 +44,34 @@ export default function TabLayout() {
           paddingBottom: insets.bottom,
           paddingTop: 6,
         },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Trang chủ',
+          title: 'Home',
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="play.rectangle.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="action"
         options={{
-          title: 'Tạo',
+          title: 'Create',
           tabBarButton: CreateTabButton,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Tài khoản',
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.crop.circle.fill" color={color} />,
+          title: 'Discover',
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="magnifyingglass" color={color} />,
         }}
       />
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'Thống kê',
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} />,
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.crop.circle.fill" color={color} />,
         }}
       />
       <Tabs.Screen

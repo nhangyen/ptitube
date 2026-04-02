@@ -1,216 +1,306 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
+import VideoGrid from '@/components/VideoGrid';
+import { useAuth } from '@/contexts/AuthContext';
+import type { DashboardData, ProfileData, VideoItem } from '@/services/api';
 import * as api from '@/services/api';
 
-const { width } = Dimensions.get('window');
+const formatNumber = (num: number = 0) => {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M`;
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}K`;
+  }
+  return `${num}`;
+};
 
-interface DashboardData {
-  totalViews: number;
-  totalLikes: number;
-  totalComments: number;
-  totalShares: number;
-  totalVideos: number;
-  followerCount: number;
-  engagementRate: number;
-  topVideos: Array<{
-    videoId: string;
-    title: string;
-    views: number;
-    likes: number;
-    comments: number;
-    engagementRate: number;
-  }>;
-}
+export default function ProfileScreen() {
+  const { token, user, login, register, logout, refreshProfile, isLoading: authLoading } = useAuth();
 
-interface ProfileData {
-  id: string;
-  username: string;
-  avatarUrl?: string;
-  bio?: string;
-  followerCount: number;
-  followingCount: number;
-  videoCount: number;
-  totalLikes: number;
-}
-
-export default function DashboardScreen() {
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
+  const loadProfileData = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const [dashboardData, profileData] = await Promise.all([
-        api.getCreatorDashboard(),
+      setLoading(true);
+      const [profileData, videoData, dashboardData, notificationCount] = await Promise.all([
         api.getMyProfile(),
+        api.getMyVideos(),
+        api.getCreatorDashboard().catch(() => null),
+        api.getUnreadNotificationCount().catch(() => 0),
       ]);
-      setDashboard(dashboardData);
       setProfile(profileData);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Please login to view dashboard');
+      setVideos(videoData);
+      setDashboard(dashboardData);
+      setUnreadCount(notificationCount);
+    } catch (error) {
+      console.error('Error loading profile data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (token) {
+      void loadProfileData();
+    } else {
+      setProfile(null);
+      setVideos([]);
+      setDashboard(null);
+      setUnreadCount(0);
+      setLoading(false);
+    }
+  }, [token, loadProfileData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        void loadProfileData();
+      }
+    }, [token, loadProfileData])
+  );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    void refreshProfile();
+    void loadProfileData();
+  };
+
+  const handleSubmitAuth = async () => {
+    if (!username.trim() || !password.trim() || (isRegisterMode && !email.trim())) {
+      Alert.alert('Missing data', 'Please fill in all required fields.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (isRegisterMode) {
+        await register(username.trim(), email.trim(), password);
+      } else {
+        await login(username.trim(), password);
+      }
+
+      setUsername('');
+      setPassword('');
+      setEmail('');
+    } catch (error: any) {
+      Alert.alert('Authentication error', error.response?.data?.message || 'Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Do you want to sign out now?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: () => void logout(),
+      },
+    ]);
   };
 
-  if (loading) {
+  if (authLoading || (token && loading)) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles.center}>
         <ActivityIndicator size="large" color="#FF3B30" />
       </View>
     );
   }
 
-  if (error) {
+  if (!token) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => {
-          // Navigate to explore/login tab
-          // @ts-ignore
-          import('expo-router').then(({ router }) => router.push('/explore'));
-        }}>
-          <Text style={styles.retryText}>Đăng nhập</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.retryButton, { marginTop: 15, backgroundColor: '#333' }]} onPress={fetchData}>
-          <Text style={styles.retryText}>Thử lại</Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={styles.authHero}>
+          <Text style={styles.authEyebrow}>PROFILE</Text>
+          <Text style={styles.authTitle}>Sign in to edit your profile and manage notifications.</Text>
+          <Text style={styles.authSubtitle}>
+            This tab now includes full profile editing, video grid, and creator stats.
+          </Text>
+        </View>
+
+        <View style={styles.authCard}>
+          <Text style={styles.authCardTitle}>{isRegisterMode ? 'Create account' : 'Login'}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Username"
+            placeholderTextColor="#6f6f6f"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+          />
+          {isRegisterMode ? (
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#6f6f6f"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          ) : null}
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#6f6f6f"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+
+          <TouchableOpacity style={styles.primaryButton} onPress={handleSubmitAuth} disabled={submitting}>
+            {submitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>{isRegisterMode ? 'Create account' : 'Login'}</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setIsRegisterMode((current) => !current)}>
+            <Text style={styles.switchText}>
+              {isRegisterMode ? 'Already have an account? Login' : 'Need an account? Register'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Profile Header */}
-      {profile && (
-        <View style={styles.profileHeader}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#FF3B30" />}
+    >
+      <View style={styles.profileHeader}>
+        <View style={styles.profileTopRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {profile.username[0].toUpperCase()}
-            </Text>
+            <Text style={styles.avatarText}>{(profile?.username || user?.username || 'U').slice(0, 1).toUpperCase()}</Text>
           </View>
-          <Text style={styles.username}>@{profile.username}</Text>
-          {profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-          
-          <View style={styles.profileStats}>
-            <View style={styles.profileStatItem}>
-              <Text style={styles.profileStatValue}>{formatNumber(profile.followerCount)}</Text>
-              <Text style={styles.profileStatLabel}>Followers</Text>
-            </View>
-            <View style={styles.profileStatItem}>
-              <Text style={styles.profileStatValue}>{formatNumber(profile.followingCount)}</Text>
-              <Text style={styles.profileStatLabel}>Following</Text>
-            </View>
-            <View style={styles.profileStatItem}>
-              <Text style={styles.profileStatValue}>{profile.videoCount}</Text>
-              <Text style={styles.profileStatLabel}>Videos</Text>
-            </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/profile/edit' as never)}>
+              <Text style={styles.secondaryButtonText}>Edit profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.bellButton} onPress={() => router.push('/notifications' as never)}>
+              <Text style={styles.bellButtonText}>Bell</Text>
+              {unreadCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
           </View>
         </View>
-      )}
 
-      {/* Stats Grid */}
-      {dashboard && (
+        <Text style={styles.profileName}>@{profile?.username || user?.username}</Text>
+        {profile?.bio ? <Text style={styles.profileBio}>{profile.bio}</Text> : null}
+        {profile?.email ? <Text style={styles.profileEmail}>{profile.email}</Text> : null}
+
+        <View style={styles.statRow}>
+          <View style={styles.statPill}>
+            <Text style={styles.statValue}>{formatNumber(profile?.followerCount)}</Text>
+            <Text style={styles.statLabel}>Followers</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Text style={styles.statValue}>{formatNumber(profile?.followingCount)}</Text>
+            <Text style={styles.statLabel}>Following</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Text style={styles.statValue}>{formatNumber(profile?.videoCount)}</Text>
+            <Text style={styles.statLabel}>Videos</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Text style={styles.statValue}>{formatNumber(profile?.totalLikes)}</Text>
+            <Text style={styles.statLabel}>Likes</Text>
+          </View>
+        </View>
+      </View>
+
+      <Text style={styles.sectionTitle}>My videos</Text>
+      <VideoGrid
+        videos={videos}
+        onVideoPress={(video) => router.push(`/video/${video.id}` as never)}
+        emptyTitle="Your profile is ready"
+        emptySubtitle="Post the first video to populate your profile grid."
+      />
+
+      {dashboard ? (
         <>
-          <Text style={styles.sectionTitle}>Analytics Overview</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statIcon}>👁️</Text>
-              <Text style={styles.statValue}>{formatNumber(dashboard.totalViews)}</Text>
-              <Text style={styles.statLabel}>Total Views</Text>
+          <Text style={styles.sectionTitle}>Creator analytics</Text>
+          <View style={styles.analyticsGrid}>
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsValue}>{formatNumber(dashboard.totalViews)}</Text>
+              <Text style={styles.analyticsLabel}>Views</Text>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statIcon}>❤️</Text>
-              <Text style={styles.statValue}>{formatNumber(dashboard.totalLikes)}</Text>
-              <Text style={styles.statLabel}>Total Likes</Text>
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsValue}>{formatNumber(dashboard.totalLikes)}</Text>
+              <Text style={styles.analyticsLabel}>Likes</Text>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statIcon}>💬</Text>
-              <Text style={styles.statValue}>{formatNumber(dashboard.totalComments)}</Text>
-              <Text style={styles.statLabel}>Comments</Text>
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsValue}>{formatNumber(dashboard.totalComments)}</Text>
+              <Text style={styles.analyticsLabel}>Comments</Text>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statIcon}>↗️</Text>
-              <Text style={styles.statValue}>{formatNumber(dashboard.totalShares)}</Text>
-              <Text style={styles.statLabel}>Shares</Text>
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsValue}>{dashboard.engagementRate.toFixed(1)}%</Text>
+              <Text style={styles.analyticsLabel}>Engagement</Text>
             </View>
           </View>
 
-          {/* Engagement Rate */}
-          <View style={styles.engagementCard}>
-            <Text style={styles.engagementTitle}>Engagement Rate</Text>
-            <View style={styles.engagementRow}>
-              <Text style={styles.engagementValue}>
-                {dashboard.engagementRate.toFixed(2)}%
-              </Text>
-              <Text style={styles.engagementFormula}>
-                (Likes + Comments) / Views × 100
-              </Text>
-            </View>
-            <View style={styles.engagementBar}>
-              <View 
-                style={[
-                  styles.engagementProgress, 
-                  { width: `${Math.min(dashboard.engagementRate, 100)}%` }
-                ]} 
-              />
-            </View>
-            <Text style={styles.engagementHint}>
-              {dashboard.engagementRate >= 5 
-                ? '🔥 Great engagement!' 
-                : dashboard.engagementRate >= 2 
-                  ? '👍 Good engagement' 
-                  : '💡 Try to increase engagement'}
-            </Text>
-          </View>
-
-          {/* Top Videos */}
-          {dashboard.topVideos && dashboard.topVideos.length > 0 && (
+          {dashboard.topVideos?.length ? (
             <>
-              <Text style={styles.sectionTitle}>Top Performing Videos</Text>
-              {dashboard.topVideos.slice(0, 5).map((video, index) => (
-                <View key={video.videoId} style={styles.videoItem}>
-                  <Text style={styles.videoRank}>#{index + 1}</Text>
-                  <View style={styles.videoInfo}>
-                    <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
-                    <View style={styles.videoStats}>
-                      <Text style={styles.videoStat}>👁️ {formatNumber(video.views)}</Text>
-                      <Text style={styles.videoStat}>❤️ {formatNumber(video.likes)}</Text>
-                      <Text style={styles.videoStat}>💬 {formatNumber(video.comments)}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.videoEngagement}>
-                    <Text style={styles.engagementBadge}>
-                      {video.engagementRate.toFixed(1)}%
+              <Text style={styles.sectionTitle}>Top performing videos</Text>
+              {dashboard.topVideos.slice(0, 5).map((item) => (
+                <View key={item.videoId} style={styles.topVideoCard}>
+                  <View>
+                    <Text style={styles.topVideoTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.topVideoStats}>
+                      {formatNumber(item.views)} views · {formatNumber(item.likes)} likes · {formatNumber(item.comments)} comments
                     </Text>
                   </View>
+                  <Text style={styles.topVideoRate}>{item.engagementRate.toFixed(1)}%</Text>
                 </View>
               ))}
             </>
-          )}
+          ) : null}
         </>
-      )}
+      ) : null}
+
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutButtonText}>Logout</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -218,199 +308,276 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#070707',
   },
   content: {
     padding: 20,
-    paddingTop: 60,
+    paddingTop: 56,
+    paddingBottom: 120,
   },
-  centerContainer: {
+  center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#070707',
   },
-  errorText: {
+  authHero: {
+    borderRadius: 28,
+    padding: 22,
+    backgroundColor: '#101010',
+    borderWidth: 1,
+    borderColor: '#242424',
+  },
+  authEyebrow: {
+    color: '#ff8f87',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+  },
+  authTitle: {
     color: '#fff',
-    fontSize: 16,
-    marginBottom: 20,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '800',
+    marginTop: 12,
   },
-  retryButton: {
+  authSubtitle: {
+    color: '#979797',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
+  },
+  authCard: {
+    marginTop: 18,
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#242424',
+  },
+  authCardTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 14,
+  },
+  input: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#2b2b2b',
+    color: '#fff',
+    fontSize: 15,
+    marginBottom: 12,
+  },
+  primaryButton: {
+    borderRadius: 16,
+    paddingVertical: 15,
+    alignItems: 'center',
     backgroundColor: '#FF3B30',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 8,
+    marginTop: 8,
   },
-  retryText: {
+  primaryButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  switchText: {
+    color: '#9a9a9a',
+    textAlign: 'center',
+    marginTop: 16,
+    fontSize: 13,
+    fontWeight: '600',
   },
   profileHeader: {
+    borderRadius: 28,
+    padding: 22,
+    backgroundColor: '#101010',
+    borderWidth: 1,
+    borderColor: '#242424',
+  },
+  profileTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 30,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     backgroundColor: '#FF3B30',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'center',
   },
   avatarText: {
     color: '#fff',
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 34,
+    fontWeight: '800',
   },
-  username: {
+  headerActions: {
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  secondaryButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#1f1f1f',
+    borderWidth: 1,
+    borderColor: '#303030',
+  },
+  secondaryButtonText: {
     color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '700',
   },
-  bio: {
-    color: '#888',
-    fontSize: 14,
-    marginTop: 5,
-    textAlign: 'center',
-  },
-  profileStats: {
-    flexDirection: 'row',
-    marginTop: 20,
-    gap: 30,
-  },
-  profileStatItem: {
+  bellButton: {
+    minWidth: 88,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#1f1f1f',
+    borderWidth: 1,
+    borderColor: '#303030',
   },
-  profileStatValue: {
+  bellButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -4,
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  profileName: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '800',
+    marginTop: 18,
+  },
+  profileBio: {
+    color: '#c6c6c6',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
+  },
+  profileEmail: {
+    color: '#878787',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  statRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 18,
+  },
+  statPill: {
+    minWidth: '48%',
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: '#171717',
+    borderWidth: 1,
+    borderColor: '#252525',
+  },
+  statValue: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
-  profileStatLabel: {
-    color: '#888',
+  statLabel: {
+    color: '#999',
     fontSize: 12,
-    marginTop: 2,
+    fontWeight: '600',
+    marginTop: 4,
   },
   sectionTitle: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
-    marginTop: 10,
+    fontWeight: '800',
+    marginTop: 28,
+    marginBottom: 14,
   },
-  statsGrid: {
+  analyticsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
-  },
-  statCard: {
-    width: (width - 50) / 2,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 15,
-    alignItems: 'center',
-  },
-  statIcon: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
-  statValue: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    color: '#888',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  engagementCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-  },
-  engagementTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  engagementRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 10,
-  },
-  engagementValue: {
-    color: '#34C759',
-    fontSize: 36,
-    fontWeight: 'bold',
-  },
-  engagementFormula: {
-    color: '#666',
-    fontSize: 10,
-  },
-  engagementBar: {
-    height: 8,
-    backgroundColor: '#333',
-    borderRadius: 4,
-    marginTop: 15,
-    overflow: 'hidden',
-  },
-  engagementProgress: {
-    height: '100%',
-    backgroundColor: '#34C759',
-    borderRadius: 4,
-  },
-  engagementHint: {
-    color: '#888',
-    fontSize: 12,
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  videoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
-  },
-  videoRank: {
-    color: '#FF3B30',
-    fontSize: 16,
-    fontWeight: 'bold',
-    width: 30,
-  },
-  videoInfo: {
-    flex: 1,
-  },
-  videoTitle: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  videoStats: {
-    flexDirection: 'row',
     gap: 12,
   },
-  videoStat: {
-    color: '#888',
-    fontSize: 12,
+  analyticsCard: {
+    width: '48%',
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#242424',
   },
-  videoEngagement: {
-    marginLeft: 10,
+  analyticsValue: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '800',
   },
-  engagementBadge: {
-    backgroundColor: '#333',
-    color: '#34C759',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  analyticsLabel: {
+    color: '#999',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  topVideoCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#242424',
+    marginBottom: 12,
+  },
+  topVideoTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    maxWidth: 230,
+  },
+  topVideoStats: {
+    color: '#9a9a9a',
+    fontSize: 12,
+    marginTop: 6,
+  },
+  topVideoRate: {
+    color: '#ffb0a8',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  logoutButton: {
+    marginTop: 28,
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#242424',
+  },
+  logoutButtonText: {
+    color: '#FF3B30',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

@@ -11,4 +11,5 @@ public interface TagRepository extends JpaRepository<Tag, UUID> {
     List<Tag> findByIsActiveTrue();
     Optional<Tag> findByNameIgnoreCase(String name);
     List<Tag> findByCategory(String category);
+    List<Tag> findTop10ByCategoryAndNameContainingIgnoreCaseOrderByNameAsc(String category, String name);
 }

@@ -36,7 +36,7 @@ import SpeedControl from '@/components/SpeedControl';
 import TextOverlayComponent, { DraggableText, TextOverlayParams } from '@/components/TextOverlay';
 import ColorFilters, { FILTER_PRESETS } from '@/components/ColorFilters';
 import { exportVideo, EditorState } from '@/services/ffmpegService';
-import { MusicTrack, MUSIC_TRACKS } from '@/constants/MusicLibrary';
+import { MusicTrack } from '@/constants/MusicLibrary';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const VIDEO_PREVIEW_HEIGHT = SCREEN_HEIGHT * 0.45;
@@ -104,6 +104,15 @@ export default function EditorScreen() {
       setTrimEnd(Math.min(videoDuration, 60));
     }
   }, [videoDuration, trimEnd, trimSet]);
+
+  useEffect(() => {
+    const currentVideo = videoRef.current;
+    return () => {
+      if (currentVideo) {
+        void currentVideo.unloadAsync().catch(() => undefined);
+      }
+    };
+  }, []);
 
   // Apply speed to preview player
   useEffect(() => {
@@ -219,7 +228,7 @@ export default function EditorScreen() {
       // Navigate to preview screen
       router.push({
         pathname: '/preview' as any,
-        params: { videoUri: outputUri },
+        params: { videoUri: outputUri, sourceVideoUri: videoUri },
       });
     } catch (error: any) {
       console.error('Export error:', error);

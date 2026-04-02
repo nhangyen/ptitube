@@ -40,6 +40,15 @@ export default function VideoTrimmer({
     }
   }, [duration, maxDuration]);
 
+  useEffect(() => {
+    const currentVideo = videoRef.current;
+    return () => {
+      if (currentVideo) {
+        void currentVideo.unloadAsync().catch(() => undefined);
+      }
+    };
+  }, []);
+
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setIsLoading(false);

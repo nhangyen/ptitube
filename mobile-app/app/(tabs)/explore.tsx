@@ -1,164 +1,202 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { router } from 'expo-router';
+import HashtagChips from '@/components/HashtagChips';
+import VideoGrid from '@/components/VideoGrid';
+import type { DiscoverData, SearchResults, UserCard, VideoItem } from '@/services/api';
 import * as api from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
 
-/**
- * Upload Tab — Giờ chỉ còn là trang đăng nhập / quản lý tài khoản.
- * Luồng tạo video chính đã chuyển sang nút "Tạo" (Create) ở tab bar giữa.
- */
-export default function UploadScreen() {
-  const { token, user, login, register, logout, isLoading: authLoading } = useAuth();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
-  const [loading, setLoading] = useState(false);
+function CreatorCard({ creator }: { creator: UserCard }) {
+  return (
+    <TouchableOpacity
+      style={styles.creatorCard}
+      onPress={() => router.push(`/profile/${creator.id}` as never)}
+      activeOpacity={0.85}
+    >
+      <View style={styles.creatorAvatar}>
+        <Text style={styles.creatorAvatarText}>{creator.username.slice(0, 1).toUpperCase()}</Text>
+      </View>
+      <View style={styles.creatorMeta}>
+        <Text style={styles.creatorName}>@{creator.username}</Text>
+        <Text style={styles.creatorBio} numberOfLines={2}>
+          {creator.bio || 'Creator profile'}
+        </Text>
+        <Text style={styles.creatorStats}>
+          {creator.followerCount} followers · {creator.videoCount} videos
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
-  const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tên đăng nhập và mật khẩu');
+function VideoRowCard({ video }: { video: VideoItem }) {
+  return (
+    <TouchableOpacity
+      style={styles.videoRow}
+      onPress={() => router.push(`/video/${video.id}` as never)}
+      activeOpacity={0.85}
+    >
+      <View style={styles.videoRowPreview}>
+        <Text style={styles.videoRowPreviewText}>PLAY</Text>
+      </View>
+      <View style={styles.videoRowMeta}>
+        <Text style={styles.videoRowTitle} numberOfLines={1}>
+          {video.title}
+        </Text>
+        <Text style={styles.videoRowDescription} numberOfLines={2}>
+          {video.description || 'No description yet.'}
+        </Text>
+        <Text style={styles.videoRowOwner}>@{video.user.username}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export default function DiscoverScreen() {
+  const [discoverData, setDiscoverData] = useState<DiscoverData | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    void loadDiscover();
+  }, []);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setSearchResults(null);
       return;
     }
-    
-    setLoading(true);
+
+    setSearching(true);
+    const timeout = setTimeout(() => {
+      void api
+        .searchDiscover(trimmed, 0, 12)
+        .then((response) => setSearchResults(response))
+        .catch((error) => console.error('Error searching discover:', error))
+        .finally(() => setSearching(false));
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [query]);
+
+  const loadDiscover = async () => {
     try {
-      await login(username, password);
-      Alert.alert('Thành công', 'Đăng nhập thành công!');
-    } catch (error: any) {
-      console.error(error);
-      Alert.alert('Lỗi', error.response?.data?.message || 'Đăng nhập thất bại');
+      setLoading(true);
+      const data = await api.getDiscover();
+      setDiscoverData(data);
+    } catch (error) {
+      console.error('Error loading discover:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleRegister = async () => {
-    if (!username.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      await register(username, email, password);
-      Alert.alert('Thành công', 'Tạo tài khoản thành công!');
-    } catch (error: any) {
-      console.error(error);
-      Alert.alert('Lỗi', error.response?.data?.message || 'Đăng ký thất bại');
-    } finally {
-      setLoading(false);
-    }
+  const onRefresh = () => {
+    setRefreshing(true);
+    void loadDiscover();
   };
 
-  const handleLogout = async () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Đăng xuất',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-        },
-      },
-    ]);
-  };
+  const activeResults = useMemo(() => searchResults, [searchResults]);
 
-  if (authLoading) {
+  if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
+      <View style={styles.center}>
         <ActivityIndicator size="large" color="#FF3B30" />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.header}>Tài khoản</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF3B30" />}
+    >
+      <View style={styles.heroCard}>
+        <Text style={styles.eyebrow}>DISCOVER</Text>
+        <Text style={styles.heroTitle}>Search videos, creators, and hashtags.</Text>
+        <Text style={styles.heroSubtitle}>
+          The search API now uses backend discover endpoints and hashtag-aware results.
+        </Text>
+      </View>
 
-      {!token ? (
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            {isRegisterMode ? 'Tạo tài khoản' : 'Đăng nhập'}
-          </Text>
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Tên đăng nhập"
-            placeholderTextColor="#666"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-          />
-          
-          {isRegisterMode && (
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#666"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+      <View style={styles.searchBox}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by title, creator, or #hashtag"
+          placeholderTextColor="#7a7a7a"
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
+
+      {searching ? <ActivityIndicator color="#FF3B30" style={styles.searchLoader} /> : null}
+
+      {activeResults ? (
+        <>
+          <Text style={styles.sectionTitle}>Videos</Text>
+          {activeResults.videos.length ? (
+            activeResults.videos.map((video) => <VideoRowCard key={video.id} video={video} />)
+          ) : (
+            <Text style={styles.emptyText}>No matching videos.</Text>
           )}
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Mật khẩu"
-            placeholderTextColor="#666"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-          
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={isRegisterMode ? handleRegister : handleLogin} 
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>
-                {isRegisterMode ? 'Đăng ký' : 'Đăng nhập'}
-              </Text>
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={() => setIsRegisterMode(!isRegisterMode)}>
-            <Text style={styles.switchText}>
-              {isRegisterMode ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+
+          <Text style={styles.sectionTitle}>Creators</Text>
+          {activeResults.users.length ? (
+            activeResults.users.map((creator) => <CreatorCard key={creator.id} creator={creator} />)
+          ) : (
+            <Text style={styles.emptyText}>No matching creators.</Text>
+          )}
+
+          <Text style={styles.sectionTitle}>Hashtags</Text>
+          {activeResults.hashtags.length ? (
+            <HashtagChips
+              hashtags={activeResults.hashtags.map((item) => item.name)}
+              onPress={(tag) => router.push(`/hashtag/${encodeURIComponent(tag)}` as never)}
+            />
+          ) : (
+            <Text style={styles.emptyText}>No matching hashtags.</Text>
+          )}
+        </>
       ) : (
-        <View style={styles.section}>
-          {/* Thông tin tài khoản */}
-          <View style={styles.profileCard}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {(user?.username || 'U').charAt(0).toUpperCase()}
-              </Text>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user?.username || 'Người dùng'}</Text>
-              <Text style={styles.profileEmail}>{user?.email || ''}</Text>
-            </View>
-          </View>
+        <>
+          <Text style={styles.sectionTitle}>Trending hashtags</Text>
+          <HashtagChips
+            hashtags={discoverData?.trendingHashtags.map((item) => item.name)}
+            onPress={(tag) => router.push(`/hashtag/${encodeURIComponent(tag)}` as never)}
+          />
 
-          <View style={styles.hintCard}>
-            <Text style={styles.hintEmoji}>💡</Text>
-            <Text style={styles.hintText}>
-              Bấm nút <Text style={styles.hintHighlight}>Tạo (+)</Text> ở thanh tab bên dưới 
-              để quay video hoặc chọn video từ thư viện và chỉnh sửa.
-            </Text>
-          </View>
+          <Text style={styles.sectionTitle}>Suggested creators</Text>
+          {discoverData?.suggestedCreators.length ? (
+            discoverData.suggestedCreators.map((creator) => <CreatorCard key={creator.id} creator={creator} />)
+          ) : (
+            <Text style={styles.emptyText}>No creators available yet.</Text>
+          )}
 
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Đăng xuất</Text>
-          </TouchableOpacity>
-        </View>
+          <Text style={styles.sectionTitle}>Featured videos</Text>
+          <VideoGrid
+            videos={discoverData?.featuredVideos || []}
+            onVideoPress={(video) => router.push(`/video/${video.id}` as never)}
+            emptyTitle="No featured videos"
+            emptySubtitle="Upload more content to populate discover."
+          />
+        </>
       )}
     </ScrollView>
   );
@@ -167,127 +205,155 @@ export default function UploadScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#070707',
+  },
+  content: {
+    padding: 20,
+    paddingTop: 56,
+    paddingBottom: 120,
   },
   center: {
+    flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#070707',
   },
-  contentContainer: {
+  heroCard: {
+    borderRadius: 28,
     padding: 20,
-    paddingTop: 60,
-  },
-  header: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  section: {
-    gap: 15,
-  },
-  label: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 15,
-    color: '#fff',
+    backgroundColor: '#111',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#242424',
   },
-  button: {
-    backgroundColor: '#FF3B30',
-    padding: 18,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
+  eyebrow: {
+    color: '#ff8f87',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
   },
-  buttonText: {
+  heroTitle: {
+    color: '#fff',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '800',
+    marginTop: 12,
+  },
+  heroSubtitle: {
+    color: '#999',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 12,
+  },
+  searchBox: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#262626',
+    marginTop: 18,
+  },
+  searchInput: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    paddingVertical: 12,
   },
-  switchText: {
-    color: '#888',
-    textAlign: 'center',
-    marginTop: 15,
+  searchLoader: {
+    marginTop: 16,
   },
-  // Profile
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    gap: 14,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FF3B30',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
+  sectionTitle: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
+    marginTop: 28,
+    marginBottom: 14,
   },
-  profileEmail: {
-    color: '#888',
-    fontSize: 14,
-    marginTop: 2,
-  },
-  // Hint
-  hintCard: {
+  creatorCard: {
     flexDirection: 'row',
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
     padding: 16,
-    gap: 12,
-    alignItems: 'flex-start',
+    borderRadius: 20,
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#242424',
+    marginBottom: 12,
   },
-  hintEmoji: {
-    fontSize: 24,
+  creatorAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  hintText: {
+  creatorAvatarText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  creatorMeta: {
     flex: 1,
-    color: '#aaa',
-    fontSize: 14,
-    lineHeight: 22,
+    marginLeft: 14,
+    gap: 4,
   },
-  hintHighlight: {
-    color: '#FF3B30',
+  creatorName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  creatorBio: {
+    color: '#949494',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  creatorStats: {
+    color: '#c8c8c8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  videoRow: {
+    flexDirection: 'row',
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#242424',
+    marginBottom: 12,
+  },
+  videoRowPreview: {
+    width: 86,
+    borderRadius: 14,
+    backgroundColor: '#262626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoRowPreviewText: {
+    color: '#fff',
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  videoRowMeta: {
+    flex: 1,
+    marginLeft: 14,
+    gap: 6,
+  },
+  videoRowTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  videoRowDescription: {
+    color: '#8f8f8f',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  videoRowOwner: {
+    color: '#ffd5d1',
+    fontSize: 12,
     fontWeight: '700',
   },
-  // Logout
-  logoutBtn: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#333',
-    marginTop: 10,
-  },
-  logoutText: {
-    color: '#FF3B30',
-    fontSize: 15,
-    fontWeight: '600',
+  emptyText: {
+    color: '#8d8d8d',
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

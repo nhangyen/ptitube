@@ -29,7 +29,7 @@ import {
   useMicrophonePermission,
   VideoFile,
 } from 'react-native-vision-camera';
-import { concatSegments } from '@/services/ffmpegService';
+import { cleanupLocalFiles, concatSegments } from '@/services/ffmpegService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAX_DURATION = 60; // Tối đa 60 giây
@@ -151,7 +151,11 @@ export default function CameraScreen() {
       {
         text: 'Xóa',
         style: 'destructive',
-        onPress: () => setSegments((prev) => prev.slice(0, -1)),
+        onPress: () => {
+          const lastSegment = segments[segments.length - 1];
+          void cleanupLocalFiles([lastSegment?.uri]);
+          setSegments((prev) => prev.slice(0, -1));
+        },
       },
     ]);
   };
@@ -170,6 +174,7 @@ export default function CameraScreen() {
       } else {
         // Ghép nhiều segment bằng FFmpeg
         videoUri = await concatSegments(segments.map((s) => s.uri));
+        await cleanupLocalFiles(segments.map((segment) => segment.uri));
       }
 
       router.push({

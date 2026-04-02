@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  Share as RNShare,
   Alert,
   Animated,
+  Share as NativeShare,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import * as api from '@/services/api';
 
 interface VideoStats {
@@ -28,7 +27,18 @@ interface SocialActionsProps {
   onLikeChange: (liked: boolean) => void;
   onFollowChange: (following: boolean) => void;
   onCommentPress: () => void;
+  onProfilePress?: () => void;
 }
+
+const formatCount = (count: number) => {
+  if (count >= 1000000) {
+    return `${(count / 1000000).toFixed(1)}M`;
+  }
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}K`;
+  }
+  return `${count}`;
+};
 
 export default function SocialActions({
   videoId,
@@ -40,23 +50,34 @@ export default function SocialActions({
   onLikeChange,
   onFollowChange,
   onCommentPress,
+  onProfilePress,
 }: SocialActionsProps) {
   const [isLiked, setIsLiked] = useState(initialLiked);
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [likeCount, setLikeCount] = useState(stats.likeCount);
   const [likeAnimation] = useState(new Animated.Value(1));
 
-  const handleLike = async () => {
-    // Optimistic update
-    const newLiked = !isLiked;
-    setIsLiked(newLiked);
-    setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
-    onLikeChange(newLiked);
+  useEffect(() => {
+    setIsLiked(initialLiked);
+  }, [initialLiked]);
 
-    // Animation
+  useEffect(() => {
+    setIsFollowing(initialFollowing);
+  }, [initialFollowing]);
+
+  useEffect(() => {
+    setLikeCount(stats.likeCount);
+  }, [stats.likeCount]);
+
+  const handleLike = async () => {
+    const nextLiked = !isLiked;
+    setIsLiked(nextLiked);
+    setLikeCount((current) => current + (nextLiked ? 1 : -1));
+    onLikeChange(nextLiked);
+
     Animated.sequence([
       Animated.spring(likeAnimation, {
-        toValue: 1.3,
+        toValue: 1.18,
         useNativeDriver: true,
       }),
       Animated.spring(likeAnimation, {
@@ -68,30 +89,27 @@ export default function SocialActions({
     try {
       await api.toggleLike(videoId);
     } catch (error: any) {
-      // Revert on error
-      setIsLiked(!newLiked);
-      setLikeCount(prev => !newLiked ? prev + 1 : prev - 1);
-      onLikeChange(!newLiked);
-      console.error('Error toggling like:', error);
+      setIsLiked(!nextLiked);
+      setLikeCount((current) => current + (!nextLiked ? 1 : -1));
+      onLikeChange(!nextLiked);
       if (error.response?.status === 401) {
-        Alert.alert('Chưa đăng nhập', 'Vui lòng đăng nhập để thích video này!');
+        Alert.alert('Login required', 'Please login to like this video.');
       }
     }
   };
 
   const handleFollow = async () => {
-    const newFollowing = !isFollowing;
-    setIsFollowing(newFollowing);
-    onFollowChange(newFollowing);
+    const nextFollowing = !isFollowing;
+    setIsFollowing(nextFollowing);
+    onFollowChange(nextFollowing);
 
     try {
       await api.toggleFollow(userId);
     } catch (error: any) {
-      setIsFollowing(!newFollowing);
-      onFollowChange(!newFollowing);
-      console.error('Error toggling follow:', error);
+      setIsFollowing(!nextFollowing);
+      onFollowChange(!nextFollowing);
       if (error.response?.status === 401) {
-        Alert.alert('Chưa đăng nhập', 'Vui lòng đăng nhập để theo dõi!');
+        Alert.alert('Login required', 'Please login to follow this creator.');
       }
     }
   };
@@ -99,91 +117,67 @@ export default function SocialActions({
   const handleShare = async () => {
     try {
       const response = await api.shareVideo(videoId);
-      const shareLink = response.shareLink || `https://videoapp.com/video/${videoId}`;
-
-      const result = await RNShare.share({
-        message: `Check out this video on VideoApp! ${shareLink}`,
+      const shareLink = response.shareLink || `videoapp://video/${videoId}`;
+      await NativeShare.share({
+        message: `Watch this video: ${shareLink}`,
         url: shareLink,
       });
-
-      if (result.action === RNShare.sharedAction) {
-        // Successfully shared
-      }
     } catch (error) {
-      console.error('Error sharing:', error);
+      console.error('Error sharing video:', error);
     }
   };
 
   const handleReport = () => {
-    Alert.alert(
-      'Report Video',
-      'Why are you reporting this video?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Inappropriate Content', onPress: () => submitReport('Inappropriate content') },
-        { text: 'Spam', onPress: () => submitReport('Spam') },
-        { text: 'Harassment', onPress: () => submitReport('Harassment') },
-        { text: 'Other', onPress: () => submitReport('Other') },
-      ]
-    );
+    Alert.alert('Report video', 'Select a reason', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Inappropriate', onPress: () => submitReport('Inappropriate content') },
+      { text: 'Spam', onPress: () => submitReport('Spam') },
+      { text: 'Harassment', onPress: () => submitReport('Harassment') },
+      { text: 'Other', onPress: () => submitReport('Other') },
+    ]);
   };
 
   const submitReport = async (reason: string) => {
     try {
       await api.reportVideo(videoId, reason);
-      Alert.alert('Thank You', 'Your report has been submitted.');
+      Alert.alert('Report sent', 'Thanks, your report has been submitted.');
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to submit report');
+      Alert.alert('Unable to report', error.response?.data?.error || 'Please try again.');
     }
-  };
-
-  const formatCount = (count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-    return count.toString();
   };
 
   return (
     <View style={styles.container}>
-      {/* User Avatar with Follow */}
       <View style={styles.actionItem}>
-        <TouchableOpacity style={styles.avatarContainer} onPress={handleFollow}>
+        <TouchableOpacity style={styles.avatarWrap} onPress={onProfilePress} activeOpacity={0.85}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{username[0].toUpperCase()}</Text>
+            <Text style={styles.avatarText}>{username.slice(0, 1).toUpperCase()}</Text>
           </View>
-          {!isFollowing && (
-            <View style={styles.followBadge}>
-              <Text style={styles.followBadgeText}>+</Text>
-            </View>
-          )}
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.followBadge} onPress={handleFollow}>
+          <Text style={styles.followBadgeText}>{isFollowing ? '✓' : '+'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Like */}
       <TouchableOpacity style={styles.actionItem} onPress={handleLike}>
-        <Animated.View style={{ transform: [{ scale: likeAnimation }] }}>
-          <Text style={[styles.actionIcon, isLiked && styles.liked]}>
-            {isLiked ? '❤️' : '🤍'}
-          </Text>
-        </Animated.View>
+        <Animated.Text style={[styles.actionIcon, styles.likeIcon, { transform: [{ scale: likeAnimation }] }]}>
+          {isLiked ? '❤' : '♡'}
+        </Animated.Text>
         <Text style={styles.actionCount}>{formatCount(likeCount)}</Text>
       </TouchableOpacity>
 
-      {/* Comment */}
       <TouchableOpacity style={styles.actionItem} onPress={onCommentPress}>
         <Text style={styles.actionIcon}>💬</Text>
         <Text style={styles.actionCount}>{formatCount(stats.commentCount)}</Text>
       </TouchableOpacity>
 
-      {/* Share */}
       <TouchableOpacity style={styles.actionItem} onPress={handleShare}>
-        <Text style={styles.actionIcon}>↗️</Text>
+        <Text style={styles.actionIcon}>↗</Text>
         <Text style={styles.actionCount}>{formatCount(stats.shareCount)}</Text>
       </TouchableOpacity>
 
-      {/* Report */}
       <TouchableOpacity style={styles.actionItem} onPress={handleReport}>
-        <Text style={styles.actionIcon}>⚠️</Text>
+        <Text style={styles.actionIcon}>⚠</Text>
       </TouchableOpacity>
     </View>
   );
@@ -192,65 +186,62 @@ export default function SocialActions({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    right: 10,
-    bottom: 100,
+    right: 12,
+    bottom: 112,
     alignItems: 'center',
     gap: 20,
   },
   actionItem: {
     alignItems: 'center',
-  },
-  avatarContainer: {
     position: 'relative',
   },
+  avatarWrap: {
+    borderRadius: 28,
+  },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#333',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#2b2b2b',
     borderWidth: 2,
     borderColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   avatarText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
   },
   followBadge: {
     position: 'absolute',
-    bottom: -5,
-    left: '50%',
-    marginLeft: -10,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    bottom: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#FF3B30',
     justifyContent: 'center',
     alignItems: 'center',
   },
   followBadgeText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '800',
   },
   actionIcon: {
-    fontSize: 32,
+    color: '#fff',
+    fontSize: 30,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
   },
-  liked: {
-    // Additional styling for liked state
+  likeIcon: {
+    color: '#ff5b52',
   },
   actionCount: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 5,
+    fontWeight: '700',
+    marginTop: 4,
   },
 });
