@@ -136,7 +136,7 @@ export default function VideoDetailScreen() {
         </View>
 
         <TouchableOpacity onPress={() => router.push(`/profile/${video.user.id}` as never)}>
-          <Text style={styles.username}>@{video.user.username}</Text>
+          <Text style={styles.username} numberOfLines={1}>@{video.user.username}</Text>
         </TouchableOpacity>
         <Text style={styles.description}>{video.description || 'No description available.'}</Text>
         <HashtagChips

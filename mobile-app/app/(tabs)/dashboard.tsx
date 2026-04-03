@@ -223,7 +223,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <Text style={styles.profileName}>@{profile?.username || user?.username}</Text>
+        <Text style={styles.profileName} numberOfLines={1}>@{profile?.username || user?.username}</Text>
         {profile?.bio ? <Text style={styles.profileBio}>{profile.bio}</Text> : null}
         {profile?.email ? <Text style={styles.profileEmail}>{profile.email}</Text> : null}
 

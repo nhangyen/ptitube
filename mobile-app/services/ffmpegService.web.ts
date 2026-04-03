@@ -1,8 +1,8 @@
 /**
- * Web fallback for the FFmpeg service.
+ * Web fallback for the media editing service.
  *
- * The native build uses @wokcito/ffmpeg-kit-react-native, but the web target
- * needs a lightweight implementation so Expo can start successfully.
+ * Android uses a custom Media3 native bridge, while web keeps a lightweight
+ * passthrough implementation so Expo can start successfully.
  */
 
 export interface TrimParams {

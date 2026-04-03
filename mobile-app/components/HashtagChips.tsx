@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface HashtagChipsProps {
   hashtags?: string[];
@@ -12,12 +12,15 @@ export default function HashtagChips({
   onPress,
   compact = false,
 }: HashtagChipsProps) {
-  if (!hashtags.length) {
-    return null;
-  }
+  if (!hashtags.length) return null;
 
   return (
-    <View style={[styles.container, compact && styles.compactContainer]}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={[styles.container, compact && styles.compactContainer]}
+      contentContainerStyle={{ paddingRight: 24 }}
+    >
       {hashtags.map((tag) => (
         <TouchableOpacity
           key={tag}
@@ -25,41 +28,47 @@ export default function HashtagChips({
           onPress={() => onPress?.(tag)}
           disabled={!onPress}
         >
-          <Text style={[styles.label, compact && styles.compactLabel]}>#{tag}</Text>
+          <Text style={[styles.label, compact && styles.compactLabel]} numberOfLines={1}>#{tag}</Text>
         </TouchableOpacity>
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
+    flexGrow: 0,
+    marginTop: 12,
+    maxHeight: 60,
   },
   compactContainer: {
-    marginTop: 6,
+    marginTop: 8,
+    maxHeight: 48,
   },
   chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 59, 48, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 59, 48, 0.26)',
+    paddingHorizontal: 16,
+    paddingVertical: 12, // Increased tap target (min 48 h)
+    borderRadius: 48, // xl rounding (3rem)
+    backgroundColor: '#2b0414', // surface-container-low (NO BORDERS)
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 48, // 3rem minimum
+    marginRight: 12,
+    maxWidth: 200,
   },
   compactChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 36, // fallback for compact
+    borderRadius: 36,
+    maxWidth: 150,
   },
   label: {
-    color: '#ffd5d1',
-    fontSize: 12,
-    fontWeight: '600',
+    color: '#f3ffca', // Tertiary - Trending / Accent pops
+    fontSize: 14, // label-sm/body-md
+    fontWeight: '700',
   },
   compactLabel: {
-    fontSize: 11,
+    fontSize: 12,
   },
 });

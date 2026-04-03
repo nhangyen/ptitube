@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Alert,
   Animated,
@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import * as api from '@/services/api';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface VideoStats {
   viewCount: number;
@@ -31,12 +32,8 @@ interface SocialActionsProps {
 }
 
 const formatCount = (count: number) => {
-  if (count >= 1000000) {
-    return `${(count / 1000000).toFixed(1)}M`;
-  }
-  if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}K`;
-  }
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
   return `${count}`;
 };
 
@@ -55,19 +52,12 @@ export default function SocialActions({
   const [isLiked, setIsLiked] = useState(initialLiked);
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [likeCount, setLikeCount] = useState(stats.likeCount);
-  const [likeAnimation] = useState(new Animated.Value(1));
+  const likeAnimation = useRef(new Animated.Value(1)).current;
+  const pulseAnimation = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    setIsLiked(initialLiked);
-  }, [initialLiked]);
-
-  useEffect(() => {
-    setIsFollowing(initialFollowing);
-  }, [initialFollowing]);
-
-  useEffect(() => {
-    setLikeCount(stats.likeCount);
-  }, [stats.likeCount]);
+  useEffect(() => { setIsLiked(initialLiked); }, [initialLiked]);
+  useEffect(() => { setIsFollowing(initialFollowing); }, [initialFollowing]);
+  useEffect(() => { setLikeCount(stats.likeCount); }, [stats.likeCount]);
 
   const handleLike = async () => {
     const nextLiked = !isLiked;
@@ -75,16 +65,23 @@ export default function SocialActions({
     setLikeCount((current) => current + (nextLiked ? 1 : -1));
     onLikeChange(nextLiked);
 
-    Animated.sequence([
-      Animated.spring(likeAnimation, {
-        toValue: 1.18,
-        useNativeDriver: true,
-      }),
-      Animated.spring(likeAnimation, {
-        toValue: 1,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (nextLiked) {
+      Animated.sequence([
+        Animated.parallel([
+          Animated.spring(likeAnimation, { toValue: 1.18, useNativeDriver: true }),
+          Animated.timing(pulseAnimation, { toValue: 1, duration: 200, useNativeDriver: true })
+        ]),
+        Animated.parallel([
+          Animated.spring(likeAnimation, { toValue: 1, useNativeDriver: true }),
+          Animated.timing(pulseAnimation, { toValue: 0, duration: 400, useNativeDriver: true })
+        ])
+      ]).start();
+    } else {
+      Animated.sequence([
+        Animated.spring(likeAnimation, { toValue: 0.8, useNativeDriver: true }),
+        Animated.spring(likeAnimation, { toValue: 1, useNativeDriver: true })
+      ]).start();
+    }
 
     try {
       await api.toggleLike(videoId);
@@ -102,7 +99,6 @@ export default function SocialActions({
     const nextFollowing = !isFollowing;
     setIsFollowing(nextFollowing);
     onFollowChange(nextFollowing);
-
     try {
       await api.toggleFollow(userId);
     } catch (error: any) {
@@ -127,41 +123,40 @@ export default function SocialActions({
     }
   };
 
-  const handleReport = () => {
-    Alert.alert('Report video', 'Select a reason', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Inappropriate', onPress: () => submitReport('Inappropriate content') },
-      { text: 'Spam', onPress: () => submitReport('Spam') },
-      { text: 'Harassment', onPress: () => submitReport('Harassment') },
-      { text: 'Other', onPress: () => submitReport('Other') },
-    ]);
-  };
-
-  const submitReport = async (reason: string) => {
-    try {
-      await api.reportVideo(videoId, reason);
-      Alert.alert('Report sent', 'Thanks, your report has been submitted.');
-    } catch (error: any) {
-      Alert.alert('Unable to report', error.response?.data?.error || 'Please try again.');
-    }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.actionItem}>
         <TouchableOpacity style={styles.avatarWrap} onPress={onProfilePress} activeOpacity={0.85}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{username.slice(0, 1).toUpperCase()}</Text>
+             <Text style={styles.avatarText}>{username.slice(0, 1).toUpperCase()}</Text>
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.followBadge} onPress={handleFollow}>
-          <Text style={styles.followBadgeText}>{isFollowing ? '✓' : '+'}</Text>
+          {isFollowing ? (
+            <View style={[styles.followInner, styles.followingInner]}>
+              <Text style={styles.followBadgeText}>✓</Text>
+            </View>
+          ) : (
+            <LinearGradient
+              colors={['#ff8c95', '#e80048']}
+              style={styles.followInner}
+            >
+              <Text style={styles.followBadgeText}>+</Text>
+            </LinearGradient>
+          )}
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.actionItem} onPress={handleLike}>
-        <Animated.Text style={[styles.actionIcon, styles.likeIcon, { transform: [{ scale: likeAnimation }] }]}>
-          {isLiked ? '❤' : '♡'}
+        <Animated.View style={[styles.pulseGlow, { 
+          opacity: pulseAnimation,
+          transform: [{ scale: pulseAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.8, 1.5]
+          })}]
+        }]} />
+        <Animated.Text style={[styles.actionIcon, isLiked && styles.likeIcon, { transform: [{ scale: likeAnimation }] }]}>
+          {isLiked ? '♥' : '♡'}
         </Animated.Text>
         <Text style={styles.actionCount}>{formatCount(likeCount)}</Text>
       </TouchableOpacity>
@@ -175,10 +170,6 @@ export default function SocialActions({
         <Text style={styles.actionIcon}>↗</Text>
         <Text style={styles.actionCount}>{formatCount(stats.shareCount)}</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity style={styles.actionItem} onPress={handleReport}>
-        <Text style={styles.actionIcon}>⚠</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -187,60 +178,77 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     right: 12,
-    bottom: 112,
+    bottom: 80, // slightly lower to keep closer to thumb zone
     alignItems: 'center',
-    gap: 20,
+     // spacing-8
   },
   actionItem: {
     alignItems: 'center',
     position: 'relative',
+    height: 48, // 3rem minimum tap target
+    justifyContent: 'center',
+    marginBottom: 32, // Replacement for gap
   },
   avatarWrap: {
-    borderRadius: 28,
+    borderRadius: 32,
+    marginBottom: 16,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#2b2b2b',
-    borderWidth: 2,
-    borderColor: '#fff',
+    width: 58,
+    height: 58,
+    borderRadius: 32,
+    backgroundColor: '#2b0414', // surface-container-low
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
+    color: '#ff8c95',
+    fontSize: 24, // headline-sm
+    
+    fontWeight: '800',
   },
   followBadge: {
     position: 'absolute',
-    bottom: -6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#FF3B30',
+    bottom: -8, // Tonal stacking
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  followInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  followingInner: {
+    backgroundColor: '#3e0d21', // surface-container-high
+  },
   followBadgeText: {
-    color: '#fff',
-    fontSize: 13,
+    color: '#64001a', // ON Primary
+    fontSize: 14,
     fontWeight: '800',
+  },
+  pulseGlow: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ff576e', // primary-fixed-dim
   },
   actionIcon: {
     color: '#fff',
-    fontSize: 30,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    fontSize: 32,
   },
   likeIcon: {
-    color: '#ff5b52',
+    color: '#ff8c95', // Primary
   },
   actionCount: {
-    color: '#fff',
-    fontSize: 12,
+    color: '#f3ffca', // Tertiary for metadata that shouldn't be missed
+    fontSize: 12, // label-sm
+    
     fontWeight: '700',
     marginTop: 4,
   },
