@@ -19,6 +19,7 @@ import java.util.*;
 public class AiAnalysisService {
 
     private static final Logger logger = LoggerFactory.getLogger(AiAnalysisService.class);
+    private static final long MAX_INLINE_AI_FILE_SIZE_BYTES = 50L * 1024L * 1024L;
 
     @Value("${video-ai.enabled:false}")
     private boolean aiEnabled;
@@ -102,6 +103,10 @@ public class AiAnalysisService {
     }
 
     private List<VideoScene> analyzeWithGoogleAi(Video video, AiAnalysisJob job) throws Exception {
+        if (video.getFileSize() != null && video.getFileSize() > MAX_INLINE_AI_FILE_SIZE_BYTES) {
+            throw new IllegalStateException("Video is too large for inline AI analysis");
+        }
+
         InputStream videoStream = minioService.getFile(video.getVideoUrl());
         byte[] videoBytes = videoStream.readAllBytes();
         videoStream.close();

@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  Share as RNShare,
   Alert,
   Animated,
+  Share as NativeShare,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import * as api from '@/services/api';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface VideoStats {
   viewCount: number;
@@ -28,7 +28,14 @@ interface SocialActionsProps {
   onLikeChange: (liked: boolean) => void;
   onFollowChange: (following: boolean) => void;
   onCommentPress: () => void;
+  onProfilePress?: () => void;
 }
+
+const formatCount = (count: number) => {
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+  return `${count}`;
+};
 
 export default function SocialActions({
   videoId,
@@ -40,144 +47,128 @@ export default function SocialActions({
   onLikeChange,
   onFollowChange,
   onCommentPress,
+  onProfilePress,
 }: SocialActionsProps) {
   const [isLiked, setIsLiked] = useState(initialLiked);
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [likeCount, setLikeCount] = useState(stats.likeCount);
-  const [likeAnimation] = useState(new Animated.Value(1));
+  const likeAnimation = useRef(new Animated.Value(1)).current;
+  const pulseAnimation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => { setIsLiked(initialLiked); }, [initialLiked]);
+  useEffect(() => { setIsFollowing(initialFollowing); }, [initialFollowing]);
+  useEffect(() => { setLikeCount(stats.likeCount); }, [stats.likeCount]);
 
   const handleLike = async () => {
-    // Optimistic update
-    const newLiked = !isLiked;
-    setIsLiked(newLiked);
-    setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
-    onLikeChange(newLiked);
+    const nextLiked = !isLiked;
+    setIsLiked(nextLiked);
+    setLikeCount((current) => current + (nextLiked ? 1 : -1));
+    onLikeChange(nextLiked);
 
-    // Animation
-    Animated.sequence([
-      Animated.spring(likeAnimation, {
-        toValue: 1.3,
-        useNativeDriver: true,
-      }),
-      Animated.spring(likeAnimation, {
-        toValue: 1,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (nextLiked) {
+      Animated.sequence([
+        Animated.parallel([
+          Animated.spring(likeAnimation, { toValue: 1.18, useNativeDriver: true }),
+          Animated.timing(pulseAnimation, { toValue: 1, duration: 200, useNativeDriver: true })
+        ]),
+        Animated.parallel([
+          Animated.spring(likeAnimation, { toValue: 1, useNativeDriver: true }),
+          Animated.timing(pulseAnimation, { toValue: 0, duration: 400, useNativeDriver: true })
+        ])
+      ]).start();
+    } else {
+      Animated.sequence([
+        Animated.spring(likeAnimation, { toValue: 0.8, useNativeDriver: true }),
+        Animated.spring(likeAnimation, { toValue: 1, useNativeDriver: true })
+      ]).start();
+    }
 
     try {
       await api.toggleLike(videoId);
-    } catch (error) {
-      // Revert on error
-      setIsLiked(!newLiked);
-      setLikeCount(prev => !newLiked ? prev + 1 : prev - 1);
-      onLikeChange(!newLiked);
-      console.error('Error toggling like:', error);
+    } catch (error: any) {
+      setIsLiked(!nextLiked);
+      setLikeCount((current) => current + (!nextLiked ? 1 : -1));
+      onLikeChange(!nextLiked);
+      if (error.response?.status === 401) {
+        Alert.alert('Login required', 'Please login to like this video.');
+      }
     }
   };
 
   const handleFollow = async () => {
-    const newFollowing = !isFollowing;
-    setIsFollowing(newFollowing);
-    onFollowChange(newFollowing);
-
+    const nextFollowing = !isFollowing;
+    setIsFollowing(nextFollowing);
+    onFollowChange(nextFollowing);
     try {
       await api.toggleFollow(userId);
-    } catch (error) {
-      setIsFollowing(!newFollowing);
-      onFollowChange(!newFollowing);
-      console.error('Error toggling follow:', error);
+    } catch (error: any) {
+      setIsFollowing(!nextFollowing);
+      onFollowChange(!nextFollowing);
+      if (error.response?.status === 401) {
+        Alert.alert('Login required', 'Please login to follow this creator.');
+      }
     }
   };
 
   const handleShare = async () => {
     try {
       const response = await api.shareVideo(videoId);
-      const shareLink = response.shareLink || `https://videoapp.com/video/${videoId}`;
-
-      const result = await RNShare.share({
-        message: `Check out this video on VideoApp! ${shareLink}`,
+      const shareLink = response.shareLink || `videoapp://video/${videoId}`;
+      await NativeShare.share({
+        message: `Watch this video: ${shareLink}`,
         url: shareLink,
       });
-
-      if (result.action === RNShare.sharedAction) {
-        // Successfully shared
-      }
     } catch (error) {
-      console.error('Error sharing:', error);
+      console.error('Error sharing video:', error);
     }
-  };
-
-  const handleReport = () => {
-    Alert.alert(
-      'Report Video',
-      'Why are you reporting this video?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Inappropriate Content', onPress: () => submitReport('Inappropriate content') },
-        { text: 'Spam', onPress: () => submitReport('Spam') },
-        { text: 'Harassment', onPress: () => submitReport('Harassment') },
-        { text: 'Other', onPress: () => submitReport('Other') },
-      ]
-    );
-  };
-
-  const submitReport = async (reason: string) => {
-    try {
-      await api.reportVideo(videoId, reason);
-      Alert.alert('Thank You', 'Your report has been submitted.');
-    } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to submit report');
-    }
-  };
-
-  const formatCount = (count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-    return count.toString();
   };
 
   return (
     <View style={styles.container}>
-      {/* User Avatar with Follow */}
       <View style={styles.actionItem}>
-        <TouchableOpacity style={styles.avatarContainer} onPress={handleFollow}>
+        <TouchableOpacity style={styles.avatarWrap} onPress={onProfilePress} activeOpacity={0.85}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{username[0].toUpperCase()}</Text>
+             <Text style={styles.avatarText}>{username.slice(0, 1).toUpperCase()}</Text>
           </View>
-          {!isFollowing && (
-            <View style={styles.followBadge}>
-              <Text style={styles.followBadgeText}>+</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.followBadge} onPress={handleFollow}>
+          {isFollowing ? (
+            <View style={[styles.followInner, styles.followingInner]}>
+              <Text style={styles.followBadgeText}>✓</Text>
             </View>
+          ) : (
+            <LinearGradient
+              colors={['#ff8c95', '#e80048']}
+              style={styles.followInner}
+            >
+              <Text style={styles.followBadgeText}>+</Text>
+            </LinearGradient>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* Like */}
       <TouchableOpacity style={styles.actionItem} onPress={handleLike}>
-        <Animated.View style={{ transform: [{ scale: likeAnimation }] }}>
-          <Text style={[styles.actionIcon, isLiked && styles.liked]}>
-            {isLiked ? '❤️' : '🤍'}
-          </Text>
-        </Animated.View>
+        <Animated.View style={[styles.pulseGlow, { 
+          opacity: pulseAnimation,
+          transform: [{ scale: pulseAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.8, 1.5]
+          })}]
+        }]} />
+        <Animated.Text style={[styles.actionIcon, isLiked && styles.likeIcon, { transform: [{ scale: likeAnimation }] }]}>
+          {isLiked ? '♥' : '♡'}
+        </Animated.Text>
         <Text style={styles.actionCount}>{formatCount(likeCount)}</Text>
       </TouchableOpacity>
 
-      {/* Comment */}
       <TouchableOpacity style={styles.actionItem} onPress={onCommentPress}>
         <Text style={styles.actionIcon}>💬</Text>
         <Text style={styles.actionCount}>{formatCount(stats.commentCount)}</Text>
       </TouchableOpacity>
 
-      {/* Share */}
       <TouchableOpacity style={styles.actionItem} onPress={handleShare}>
-        <Text style={styles.actionIcon}>↗️</Text>
+        <Text style={styles.actionIcon}>↗</Text>
         <Text style={styles.actionCount}>{formatCount(stats.shareCount)}</Text>
-      </TouchableOpacity>
-
-      {/* Report */}
-      <TouchableOpacity style={styles.actionItem} onPress={handleReport}>
-        <Text style={styles.actionIcon}>⚠️</Text>
       </TouchableOpacity>
     </View>
   );
@@ -186,65 +177,79 @@ export default function SocialActions({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    right: 10,
-    bottom: 100,
+    right: 12,
+    bottom: 80, // slightly lower to keep closer to thumb zone
     alignItems: 'center',
-    gap: 20,
+     // spacing-8
   },
   actionItem: {
     alignItems: 'center',
-  },
-  avatarContainer: {
     position: 'relative',
+    height: 48, // 3rem minimum tap target
+    justifyContent: 'center',
+    marginBottom: 32, // Replacement for gap
+  },
+  avatarWrap: {
+    borderRadius: 32,
+    marginBottom: 16,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#333',
+    width: 58,
+    height: 58,
+    borderRadius: 32,
+    backgroundColor: '#2b0414', // surface-container-low
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
   },
   avatarText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#ff8c95',
+    fontSize: 24, // headline-sm
+    
+    fontWeight: '800',
   },
   followBadge: {
     position: 'absolute',
-    bottom: -5,
-    left: '50%',
-    marginLeft: -10,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FF3B30',
+    bottom: -8, // Tonal stacking
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  followInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  followingInner: {
+    backgroundColor: '#3e0d21', // surface-container-high
+  },
   followBadgeText: {
-    color: '#fff',
+    color: '#64001a', // ON Primary
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '800',
+  },
+  pulseGlow: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ff576e', // primary-fixed-dim
   },
   actionIcon: {
+    color: '#fff',
     fontSize: 32,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
   },
-  liked: {
-    // Additional styling for liked state
+  likeIcon: {
+    color: '#ff8c95', // Primary
   },
   actionCount: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 5,
+    color: '#f3ffca', // Tertiary for metadata that shouldn't be missed
+    fontSize: 12, // label-sm
+    
+    fontWeight: '700',
+    marginTop: 4,
   },
 });

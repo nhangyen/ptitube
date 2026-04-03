@@ -60,10 +60,16 @@ public class AuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = tokenProvider.generateToken(authentication);
 
-        String role = userRepository.findByUsername(request.getUsername())
-                .map(user -> user.getRole().name())
-                .orElse("user");
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return new AuthResponse(jwt, request.getUsername(), role);
+        return new AuthResponse(
+                user.getId().toString(),
+                jwt,
+                user.getUsername(),
+                user.getEmail(),
+                user.getAvatarUrl(),
+                user.getRole().name()
+        );
     }
 }

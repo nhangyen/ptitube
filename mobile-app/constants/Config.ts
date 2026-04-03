@@ -3,6 +3,13 @@
 // - 10.3.252.224: IP thực của máy (dùng cho thiết bị thật/Expo Go)
 // - localhost: Chỉ hoạt động trên web
 
-const HOST_IP = "192.168.1.31"; // Thay bằng IP của bạn nếu khác
+const HOST_IP = "172.11.152.231"; // Dùng cho Android Emulator
+
 export const API_BASE_URL = `http://${HOST_IP}:8080/api`;
 export const API_TIMEOUT = 15000; // 15 seconds timeout
+
+
+
+
+
+

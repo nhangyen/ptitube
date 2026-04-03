@@ -2,7 +2,9 @@ package com.example.video.controller;
 
 import com.example.video.dto.CreatorDashboard;
 import com.example.video.dto.ReportRequest;
+import com.example.video.dto.UpdateProfileRequest;
 import com.example.video.dto.UserProfile;
+import com.example.video.dto.VideoFeedItem;
 import com.example.video.model.Report;
 import com.example.video.model.User;
 import com.example.video.model.UserRole;
@@ -160,6 +162,40 @@ public class AdminController {
 
         UserProfile profile = adminService.getUserProfile(userId, userId);
         return ResponseEntity.ok(profile);
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateMyProfile(
+            @RequestBody UpdateProfileRequest request,
+            Authentication authentication) {
+        UUID userId = getCurrentUserId(authentication);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Please login first"));
+        }
+
+        try {
+            return ResponseEntity.ok(adminService.updateProfile(userId, request));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+        }
+    }
+
+    @GetMapping("/users/{userId}/videos")
+    public ResponseEntity<List<VideoFeedItem>> getUserVideos(
+            @PathVariable UUID userId,
+            Authentication authentication) {
+        UUID currentUserId = getCurrentUserId(authentication);
+        return ResponseEntity.ok(adminService.getUserVideos(userId, currentUserId));
+    }
+
+    @GetMapping("/profile/videos")
+    public ResponseEntity<?> getMyVideos(Authentication authentication) {
+        UUID userId = getCurrentUserId(authentication);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Please login first"));
+        }
+
+        return ResponseEntity.ok(adminService.getUserVideos(userId, userId));
     }
 
     private UUID getCurrentUserId(Authentication authentication) {

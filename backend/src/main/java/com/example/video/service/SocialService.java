@@ -33,33 +33,32 @@ public class SocialService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private NotificationService notificationService;
+
     // ==================== LIKE ====================
     
     @Transactional
     public boolean toggleLike(UUID userId, UUID videoId) {
         if (likeRepository.existsByUserIdAndVideoId(userId, videoId)) {
             likeRepository.deleteByUserIdAndVideoId(userId, videoId);
-            updateLikeCount(videoId, -1);
             return false; // Unliked
         } else {
             Like like = new Like();
             like.setUserId(userId);
             like.setVideoId(videoId);
             likeRepository.save(like);
-            updateLikeCount(videoId, 1);
+
+            videoRepository.findById(videoId)
+                    .map(Video::getUser)
+                    .map(User::getId)
+                    .ifPresent(ownerId -> notificationService.createLikeNotification(userId, ownerId, videoId));
             return true; // Liked
         }
     }
 
     public boolean isLiked(UUID userId, UUID videoId) {
         return likeRepository.existsByUserIdAndVideoId(userId, videoId);
-    }
-
-    private void updateLikeCount(UUID videoId, int delta) {
-        videoStatsRepository.findByVideoId(videoId).ifPresent(stats -> {
-            stats.setLikeCount(Math.max(0, stats.getLikeCount() + delta));
-            videoStatsRepository.save(stats);
-        });
     }
 
     // ==================== COMMENT ====================
@@ -85,6 +84,16 @@ public class SocialService {
         comment.setCreatedAt(java.time.LocalDateTime.now());
         Comment saved = commentRepository.save(comment);
         updateCommentCount(request.getVideoId(), 1);
+
+        notificationService.createCommentNotification(userId, video.getUser().getId(), video.getId(), saved.getId());
+        if (saved.getParent() != null) {
+            notificationService.createReplyNotification(
+                    userId,
+                    saved.getParent().getUser().getId(),
+                    video.getId(),
+                    saved.getId()
+            );
+        }
 
         return convertToResponse(saved);
     }
@@ -166,6 +175,7 @@ public class SocialService {
             follow.setFollowerId(followerId);
             follow.setFollowingId(followingId);
             followRepository.save(follow);
+            notificationService.createFollowNotification(followerId, followingId);
             return true; // Followed
         }
     }
