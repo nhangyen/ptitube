@@ -1,45 +1,42 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  StyleSheet,
-  FlatList,
-  View,
-  Text,
-  Dimensions,
-  TouchableOpacity,
   ActivityIndicator,
+  Dimensions,
+  FlatList,
   RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
-import { API_BASE_URL, API_TIMEOUT } from '@/constants/Config';
-import * as api from '@/services/api';
-import SocialActions from '@/components/SocialActions';
+import { router } from 'expo-router';
+import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import CommentSection from '@/components/CommentSection';
+import HashtagChips from '@/components/HashtagChips';
+import SocialActions from '@/components/SocialActions';
+import { API_BASE_URL } from '@/constants/Config';
+import type { VideoItem, VideoStats } from '@/services/api';
+import * as api from '@/services/api';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 const { height, width } = Dimensions.get('window');
-const PRELOAD_COUNT = 3;
 
-interface VideoStats {
-  viewCount: number;
-  likeCount: number;
-  commentCount: number;
-  shareCount: number;
-}
+const DEFAULT_STATS: VideoStats = {
+  viewCount: 0,
+  likeCount: 0,
+  commentCount: 0,
+  shareCount: 0,
+};
+const ACTIVE_VIDEO_WINDOW = 1;
 
-interface VideoItem {
-  id: string;
-  videoUrl: string;
-  title: string;
-  description: string;
-  score?: number;
-  user: {
-    id: string;
-    username: string;
-    avatarUrl?: string;
-    followedByCurrentUser?: boolean;
-  };
-  stats?: VideoStats;
-  likedByCurrentUser?: boolean;
-}
+const resolveVideoUri = (item: VideoItem) => {
+  if (item.videoUrl?.startsWith('http')) {
+    return item.videoUrl;
+  }
+  return `${API_BASE_URL.replace('/api', '')}${item.videoUrl}`;
+};
 
 export default function FeedScreen() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
@@ -53,50 +50,37 @@ export default function FeedScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [showComments, setShowComments] = useState(false);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [containerHeight, setContainerHeight] = useState(height);
 
-  const videoRefs = useRef<{ [key: string]: Video | null }>({});
-  const preloadedUrls = useRef<Set<string>>(new Set());
+  const videoRefs = useRef<Record<string, Video | null>>({});
   const viewRecorded = useRef<Set<string>>(new Set());
+  const currentVideoId = videos[currentVideoIndex]?.id ?? null;
 
   useEffect(() => {
-    fetchVideos(0, true);
+    void fetchVideos(0, true);
+
+    return () => {
+      Object.values(videoRefs.current).forEach((ref) => {
+        if (ref) {
+          void ref.unloadAsync().catch(() => undefined);
+        }
+      });
+      videoRefs.current = {};
+    };
   }, []);
 
-  // Preload upcoming videos
-  useEffect(() => {
-    for (let i = 1; i <= PRELOAD_COUNT; i++) {
-      const nextIndex = currentVideoIndex + i;
-      if (nextIndex < videos.length) {
-        const videoUrl = videos[nextIndex].videoUrl;
-        preloadedUrls.current.add(videoUrl);
-      }
-    }
-  }, [currentVideoIndex, videos]);
-
-  const fetchVideos = async (pageNum: number, isRefresh: boolean = false) => {
-    if (isRefresh) setLoading(true);
+  const fetchVideos = async (pageNum: number, refresh = false) => {
+    if (refresh) setLoading(true);
     else setLoadingMore(true);
 
     try {
       const response = await api.getFeed(pageNum, 10);
-      const newVideos = response || [];
-      
-      if (isRefresh) {
-        setVideos(newVideos);
-        setPage(0);
-      } else {
-        setVideos(prev => [...prev, ...newVideos]);
-      }
-      setHasMore(newVideos.length >= 10);
+      setVideos((current) => (refresh ? response : [...current, ...response]));
+      setHasMore(response.length >= 10);
+      setPage(pageNum);
     } catch (error) {
       console.error('Error fetching feed:', error);
-      // Fallback to regular videos endpoint
-      try {
-        const fallback = await api.getVideos();
-        if (isRefresh) setVideos(fallback || []);
-      } catch (e) {
-        console.error('Fallback error:', e);
-      }
+      if (refresh) setVideos([]);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -106,221 +90,230 @@ export default function FeedScreen() {
 
   const handleRefresh = () => {
     setRefreshing(true);
+    setCurrentVideoIndex(0);
+    setIsPaused(false);
     viewRecorded.current.clear();
-    fetchVideos(0, true);
+    void fetchVideos(0, true);
   };
 
   const handleLoadMore = () => {
-    if (!loadingMore && hasMore) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      fetchVideos(nextPage, false);
-    }
+    if (!loadingMore && hasMore) void fetchVideos(page + 1, false);
   };
 
   const recordVideoView = useCallback(async (videoId: string) => {
-    if (!viewRecorded.current.has(videoId)) {
-      viewRecorded.current.add(videoId);
-      try {
-        await api.recordView(videoId, 0, false);
-      } catch (error) {
-        console.error('Error recording view:', error);
-      }
+    if (viewRecorded.current.has(videoId)) return;
+    viewRecorded.current.add(videoId);
+    try {
+      await api.recordView(videoId, 0, false);
+    } catch (error) {
+      console.error('Error recording view:', error);
     }
   }, []);
 
   const handleViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems.length > 0) {
-      const visibleIndex = viewableItems[0].index;
-      const visibleVideo = viewableItems[0].item as VideoItem;
-      
-      setCurrentVideoIndex(visibleIndex);
-      if (visibleVideo) recordVideoView(visibleVideo.id);
-      
-      Object.keys(videoRefs.current).forEach((key) => {
-        const index = parseInt(key);
-        const videoRef = videoRefs.current[key];
-        if (videoRef) {
-          if (index === visibleIndex) {
-            videoRef.playAsync();
-          } else {
-            videoRef.pauseAsync();
-            videoRef.setPositionAsync(0);
-          }
-        }
-      });
-    }
+    if (!viewableItems.length) return;
+
+    const visibleIndex = viewableItems[0].index;
+    const visibleVideo = viewableItems[0].item as VideoItem;
+
+    setCurrentVideoIndex(visibleIndex);
+    setIsPaused(false);
+    if (visibleVideo) void recordVideoView(visibleVideo.id);
+
+    Object.entries(videoRefs.current).forEach(([videoId, videoRef]) => {
+      if (!videoRef) return;
+      if (videoId === visibleVideo?.id) void videoRef.playAsync();
+      else {
+        void videoRef.pauseAsync();
+        void videoRef.setPositionAsync(0);
+      }
+    });
   }).current;
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 60,
-  }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
 
   const togglePlayPause = () => {
-    const currentRef = videoRefs.current[currentVideoIndex.toString()];
-    if (currentRef) {
-      if (isPaused) currentRef.playAsync();
-      else currentRef.pauseAsync();
-      setIsPaused(!isPaused);
-    }
+    if (!currentVideoId) return;
+    const currentRef = videoRefs.current[currentVideoId];
+    if (!currentRef) return;
+    if (isPaused) void currentRef.playAsync();
+    else void currentRef.pauseAsync();
+    setIsPaused((current) => !current);
   };
 
   const toggleMute = () => {
-    const currentRef = videoRefs.current[currentVideoIndex.toString()];
-    if (currentRef) {
-      currentRef.setIsMutedAsync(!isMuted);
-      setIsMuted(!isMuted);
-    }
+    if (!currentVideoId) return;
+    const currentRef = videoRefs.current[currentVideoId];
+    if (!currentRef) return;
+    void currentRef.setIsMutedAsync(!isMuted);
+    setIsMuted((current) => !current);
+  };
+
+  const updateVideo = (videoId: string, updater: (video: VideoItem) => VideoItem) => {
+    setVideos((current) => current.map((video) => (video.id === videoId ? updater(video) : video)));
   };
 
   const handleLikeChange = (videoId: string, liked: boolean) => {
-    setVideos(prev => prev.map(v => 
-      v.id === videoId 
-        ? { ...v, likedByCurrentUser: liked, stats: v.stats ? { ...v.stats, likeCount: v.stats.likeCount + (liked ? 1 : -1) } : v.stats }
-        : v
-    ));
+    updateVideo(videoId, (video) => ({
+      ...video,
+      likedByCurrentUser: liked,
+      stats: {
+        ...(video.stats || DEFAULT_STATS),
+        likeCount: Math.max(0, (video.stats?.likeCount || 0) + (liked ? 1 : -1)),
+      },
+    }));
   };
 
   const handleFollowChange = (userId: string, following: boolean) => {
-    setVideos(prev => prev.map(v => 
-      v.user.id === userId 
-        ? { ...v, user: { ...v.user, followedByCurrentUser: following } }
-        : v
-    ));
-  };
 
-  const openComments = (videoId: string) => {
-    setSelectedVideoId(videoId);
-    setShowComments(true);
-  };
-
-  const getVideoUri = (item: VideoItem) => {
-    console.log(item.videoUrl);
-    if (item.videoUrl.startsWith('http')) return item.videoUrl;
-    return `${API_BASE_URL.replace('/api', '')}${item.videoUrl}`;
+    setVideos((current) =>
+      current.map((video) =>
+        video.user.id === userId
+          ? { ...video, user: { ...video.user, followedByCurrentUser: following } }
+          : video
+      )
+    );
   };
 
   const renderItem = ({ item, index }: { item: VideoItem; index: number }) => {
-    const videoUri = getVideoUri(item);
     const isCurrentVideo = index === currentVideoIndex;
-    const defaultStats: VideoStats = { viewCount: 0, likeCount: 0, commentCount: 0, shareCount: 0 };
+    const shouldMountVideo = Math.abs(index - currentVideoIndex) <= ACTIVE_VIDEO_WINDOW;
 
     return (
-      <View style={styles.videoCard}>
-        <TouchableOpacity 
-          style={styles.videoTouchable}
-          activeOpacity={1}
-          onPress={togglePlayPause}
-        >
-          <Video
-            ref={(ref) => { videoRefs.current[index.toString()] = ref; }}
-            source={{ uri: videoUri }}
-            style={styles.video}
-            resizeMode={ResizeMode.CONTAIN}
-            isLooping
-            shouldPlay={isCurrentVideo && !isPaused}
-            isMuted={isMuted}
-            useNativeControls={false}
-            onError={(error) => console.error('Video error:', error)}
-            onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
-              if (status.isLoaded && isCurrentVideo) {
-                setIsPaused(!status.isPlaying);
-              }
-            }}
+
+      <View style={[styles.videoCard, { height: containerHeight }]}>
+        <TouchableOpacity style={styles.videoTouchable} activeOpacity={1} onPress={togglePlayPause}>
+          {shouldMountVideo ? (
+            <Video
+              ref={(ref) => {
+                if (ref) videoRefs.current[item.id] = ref;
+                else delete videoRefs.current[item.id];
+              }}
+              source={{ uri: resolveVideoUri(item) }}
+              style={styles.video}
+              resizeMode={ResizeMode.COVER}
+              isLooping
+              shouldPlay={isCurrentVideo && !isPaused}
+              isMuted={isMuted}
+              useNativeControls={false}
+              onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
+                // Remove state sync to prevent auto-play reset when video loads
+                // if (status.didJustFinish) {
+                //   // Only manage finish if not looping, but we have isLooping on
+                // }
+                if (status.isLoaded && status.didJustFinish) {
+  // Code xử lý khi video kết thúc
+}
+              }}
+            />
+          ) : (
+            <View style={styles.videoPlaceholder} />
+          )}
+
+          {/* Gradient Overlay for bottom text readability, fading to deep obsidian */}
+          <LinearGradient
+            colors={['transparent', 'rgba(35, 2, 15, 0.4)', 'rgba(35, 2, 15, 0.8)', '#23020f']}
+            locations={[0, 0.5, 0.8, 1]}
+            style={styles.bottomGradient}
+            pointerEvents="none"
+
           />
+
+          <View style={styles.contentOverlay}>
+            <TouchableOpacity onPress={() => router.push(`/profile/${item.user.id}` as never)}>
+              <Text style={styles.usernameText} numberOfLines={1}>@{item.user?.username || 'user'}</Text>
+            </TouchableOpacity>
+            <Text style={styles.titleText} numberOfLines={1}>{item.title}</Text>
+            <Text style={styles.descriptionText} numberOfLines={2}>
+              {item.description}
+            </Text>
+            <HashtagChips hashtags={item.hashtags?.map((t) => typeof t === 'string' ? t : (t as any).name) || []} />
+          </View>
         </TouchableOpacity>
-        
-        <View style={styles.controlsContainer}>
-          <TouchableOpacity style={styles.controlButton} onPress={toggleMute}>
-            <Text style={styles.controlIcon}>{isMuted ? '🔇' : '🔊'}</Text>
+
+        {/* Top Controls Glassmorphism */}
+        <BlurView intensity={70} tint="dark" style={styles.topControlMuteContainer}>
+          <TouchableOpacity style={styles.controlButtonList} onPress={toggleMute}>
+            <Ionicons name={isMuted ? 'volume-mute' : 'volume-medium'} size={20} color="#fff" />
           </TouchableOpacity>
-        </View>
+        </BlurView>
 
         {isPaused && isCurrentVideo && (
-          <View style={styles.pauseIndicator}>
-            <Text style={styles.pauseIcon}>▶️</Text>
+          <View style={styles.pauseIndicatorContainer} pointerEvents="none">
+            <BlurView intensity={70} tint="dark" style={styles.pauseIndicatorWrap}>
+              <Ionicons name="play" size={38} color="#ff8c95" style={{ marginLeft: 6 }} />
+            </BlurView>
           </View>
         )}
 
-        {/* Social Actions */}
         <SocialActions
           videoId={item.id}
           userId={item.user?.id || ''}
           username={item.user?.username || 'user'}
-          stats={item.stats || defaultStats}
-          isLiked={item.likedByCurrentUser || false}
-          isFollowing={item.user?.followedByCurrentUser || false}
+          stats={item.stats || DEFAULT_STATS}
+          isLiked={Boolean(item.likedByCurrentUser)}
+          isFollowing={Boolean(item.user?.followedByCurrentUser)}
           onLikeChange={(liked) => handleLikeChange(item.id, liked)}
           onFollowChange={(following) => handleFollowChange(item.user?.id || '', following)}
-          onCommentPress={() => openComments(item.id)}
+          onCommentPress={() => {
+            setSelectedVideoId(item.id);
+            setShowComments(true);
+          }}
+          onProfilePress={() => router.push(`/profile/${item.user.id}` as never)}
         />
-
-        <View style={styles.overlay}>
-          <Text style={styles.username}>@{item.user?.username || 'user'}</Text>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
-        </View>
-      </View>
-    );
-  };
-
-  const renderFooter = () => {
-    if (!loadingMore) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color="#FF3B30" />
       </View>
     );
   };
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF3B30" />
+      <View style={styles.loaderCenter}>
+        <ActivityIndicator size="large" color="#ff8c95" />
+      </View>
+    );
+  }
+
+  if (videos.length === 0) {
+    return (
+      <View style={styles.loaderCenter}>
+        <Text style={styles.infoCenterText}>No videos found</Text>
+        <TouchableOpacity style={styles.refreshControlBtn} onPress={handleRefresh}>
+          <Text style={styles.refreshControlText}>Refresh</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {videos.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.infoText}>No videos yet. Upload something!</Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={() => fetchVideos(0, true)}>
-            <Text style={styles.refreshText}>Refresh</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={videos}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id.toString()}
-          pagingEnabled
-          showsVerticalScrollIndicator={false}
-          snapToInterval={height - 79}
-          snapToAlignment="start"
-          decelerationRate="fast"
-          onViewableItemsChanged={handleViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#FF3B30" />
-          }
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={3}
-          windowSize={5}
-          initialNumToRender={2}
-          getItemLayout={(data, index) => ({
-            length: height - 79,
-            offset: (height - 79) * index,
-            index,
-          })}
-        />
-      )}
+    <View 
+      style={styles.mainContainer} 
+      onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+    >
+      <FlatList
+        data={videos}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        onViewableItemsChanged={handleViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#ff8c95"
+            colors={['#ff8c95']}
+          />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        getItemLayout={(data, index) => ({ length: containerHeight, offset: containerHeight * index, index })}
+        snapToInterval={containerHeight}
+        snapToAlignment="start"
+        decelerationRate="fast"
+      />
 
-      {selectedVideoId && (
+      {showComments && selectedVideoId && (
         <CommentSection
           videoId={selectedVideoId}
           visible={showComments}
@@ -332,108 +325,122 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#23020f', // Base surface
   },
-  videoCard: {
-    height: height - 79,
-    width: width,
+  loaderCenter: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#23020f',
+  },
+  infoCenterText: {
+    color: '#e8e8e8',
+    fontSize: 16,
+    
+    marginBottom: 24, // spacing-6 (1.5rem)
+  },
+  refreshControlBtn: {
+    height: 48, // 3rem tap target
+    paddingHorizontal: 24,
+    borderRadius: 48,
+    backgroundColor: '#ff8c95', // Primary
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshControlText: {
+    color: '#64001a', // On-primary
+    
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  videoCard: {
+    width: width,
+    height: height,
+    backgroundColor: '#23020f',
+    position: 'relative',
   },
   videoTouchable: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
   },
   video: {
     width: '100%',
     height: '100%',
   },
-  controlsContainer: {
+  videoPlaceholder: {
+    flex: 1,
+    backgroundColor: '#2b0414', // surface-container-low
+  },
+  bottomGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '40%',
+  },
+  topControlMuteContainer: {
     position: 'absolute',
     top: 60,
-    right: 20,
-    gap: 15,
+    right: 24,
+    borderRadius: 48,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(74, 17, 41, 0.7)', // surface-container-highest at 70%
   },
-  controlButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  controlButtonList: {
+    height: 48, // 3rem minimum
+    width: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
   },
-  controlIcon: {
-    fontSize: 24,
+  controlIconList: {
+    fontSize: 20,
+    color: '#fff',
   },
-  pauseIndicator: {
+  pauseIndicatorContainer: {
     position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -42 }, { translateY: -42 }],
+    borderRadius: 84,
+    overflow: 'hidden',
+  },
+  pauseIndicatorWrap: {
+    width: 84,
+    height: 84,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(62, 13, 33, 0.7)', // surface-container-high at 70%
   },
-  pauseIcon: {
-    fontSize: 40,
+  pauseIconStyle: {
+    color: '#ff8c95', // Primary
+    fontSize: 34,
+    marginLeft: 6,
   },
-  overlay: {
+  contentOverlay: {
     position: 'absolute',
-    bottom: 40,
-    left: 20,
-    right: 80,
+    left: 24,
+    right: 84,
+    bottom: 30, // offset
+     // whitespace grouping
   },
-  username: {
+  usernameText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 5,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
+    fontSize: 24, // headline-sm (1.5rem)
+    fontWeight: '800',
+    marginBottom: 8,
   },
-  title: {
+  titleText: {
     color: '#fff',
-    fontSize: 15,
     fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
+    marginBottom: 8,
+    fontSize: 14, // body-md (0.875rem)
+    lineHeight: 22,
   },
-  description: {
-    color: '#ddd',
-    fontSize: 14,
-    marginTop: 5,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-  },
-  infoText: {
-    color: '#fff',
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  refreshButton: {
-    padding: 12,
-    backgroundColor: '#FF3B30',
-    borderRadius: 8,
-  },
-  refreshText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: 'center',
+  descriptionText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
   },
 });

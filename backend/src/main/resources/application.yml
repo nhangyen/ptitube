@@ -12,8 +12,13 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   servlet:
     multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
+      max-file-size: 250MB
+      max-request-size: 250MB
+      file-size-threshold: 2MB
+
+app:
+  video:
+    max-upload-size: 250MB
 
 minio:
   url: ${MINIO_URL:http://localhost:9000}
