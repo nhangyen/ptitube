@@ -121,8 +121,9 @@ public class SocialService {
         }
 
         UUID videoId = comment.getVideo().getId();
+        int deletedCount = countCommentTree(comment.getId());
         commentRepository.delete(comment);
-        updateCommentCount(videoId, -1);
+        updateCommentCount(videoId, -deletedCount);
     }
 
     private void updateCommentCount(UUID videoId, int delta) {
@@ -151,12 +152,22 @@ public class SocialService {
 
     private CommentResponse convertToResponseWithReplies(Comment comment) {
         CommentResponse response = convertToResponse(comment);
-        if (comment.getReplies() != null && !comment.getReplies().isEmpty()) {
-            response.setReplies(comment.getReplies().stream()
-                    .map(this::convertToResponse)
+        List<Comment> replies = commentRepository.findByParentIdOrderByCreatedAtAsc(comment.getId());
+        if (!replies.isEmpty()) {
+            response.setReplies(replies.stream()
+                    .map(this::convertToResponseWithReplies)
                     .collect(Collectors.toList()));
         }
         return response;
+    }
+
+    private int countCommentTree(UUID commentId) {
+        List<Comment> replies = commentRepository.findByParentIdOrderByCreatedAtAsc(commentId);
+        int total = 1;
+        for (Comment reply : replies) {
+            total += countCommentTree(reply.getId());
+        }
+        return total;
     }
 
     // ==================== FOLLOW ====================

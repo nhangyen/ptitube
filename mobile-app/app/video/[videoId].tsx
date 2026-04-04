@@ -76,6 +76,20 @@ export default function VideoDetailScreen() {
     );
   }
 
+  const handleCommentCountChange = (count: number) => {
+    setVideo((current) =>
+      current
+        ? {
+            ...current,
+            stats: {
+              ...(current.stats || DEFAULT_STATS),
+              commentCount: count,
+            },
+          }
+        : current
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -151,7 +165,12 @@ export default function VideoDetailScreen() {
         </View>
       </ScrollView>
 
-      <CommentSection videoId={video.id} visible={showComments} onClose={() => setShowComments(false)} />
+      <CommentSection
+        videoId={video.id}
+        visible={showComments}
+        onClose={() => setShowComments(false)}
+        onCommentsCountChange={handleCommentCountChange}
+      />
     </View>
   );
 }

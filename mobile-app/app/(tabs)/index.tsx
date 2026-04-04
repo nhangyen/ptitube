@@ -174,6 +174,16 @@ export default function FeedScreen() {
     );
   };
 
+  const handleCommentCountChange = (videoId: string, count: number) => {
+    updateVideo(videoId, (video) => ({
+      ...video,
+      stats: {
+        ...(video.stats || DEFAULT_STATS),
+        commentCount: count,
+      },
+    }));
+  };
+
   const renderItem = ({ item, index }: { item: VideoItem; index: number }) => {
     const isCurrentVideo = index === currentVideoIndex;
     const shouldMountVideo = Math.abs(index - currentVideoIndex) <= ACTIVE_VIDEO_WINDOW;
@@ -312,6 +322,7 @@ export default function FeedScreen() {
           videoId={selectedVideoId}
           visible={showComments}
           onClose={() => setShowComments(false)}
+          onCommentsCountChange={(count) => handleCommentCountChange(selectedVideoId, count)}
         />
       )}
     </View>
