@@ -130,6 +130,15 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleOpenConnections = (type: 'followers' | 'following') => {
+    const targetUserId = profile?.id || user?.id;
+    if (!targetUserId) {
+      return;
+    }
+
+    router.push(`/profile/${targetUserId}/${type}` as never);
+  };
+
   if (authLoading || (token && loading)) {
     return (
       <View style={styles.center}>
@@ -228,14 +237,14 @@ export default function ProfileScreen() {
         {profile?.email ? <Text style={styles.profileEmail}>{profile.email}</Text> : null}
 
         <View style={styles.statRow}>
-          <View style={styles.statPill}>
+          <TouchableOpacity style={styles.statPill} activeOpacity={0.85} onPress={() => handleOpenConnections('followers')}>
             <Text style={styles.statValue}>{formatNumber(profile?.followerCount)}</Text>
             <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={styles.statPill}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.statPill} activeOpacity={0.85} onPress={() => handleOpenConnections('following')}>
             <Text style={styles.statValue}>{formatNumber(profile?.followingCount)}</Text>
             <Text style={styles.statLabel}>Following</Text>
-          </View>
+          </TouchableOpacity>
           <View style={styles.statPill}>
             <Text style={styles.statValue}>{formatNumber(profile?.videoCount)}</Text>
             <Text style={styles.statLabel}>Videos</Text>

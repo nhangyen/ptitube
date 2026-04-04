@@ -32,7 +32,10 @@ export default function VideoGrid({
   const renderItem: ListRenderItem<VideoItem> = ({ item }) => (
     <TouchableOpacity style={styles.card} onPress={() => onVideoPress(item)} activeOpacity={0.85}>
       <View style={styles.preview}>
-        <Text style={styles.previewBadge}>VIDEO</Text>
+        <View style={styles.previewTopRow}>
+          <Text style={styles.previewBadge}>VIDEO</Text>
+          {item.entryType === 'repost' ? <Text style={styles.repostBadge}>REPOST</Text> : null}
+        </View>
         <Text style={styles.previewTitle} numberOfLines={2}>
           {item.title || 'Untitled'}
         </Text>
@@ -56,7 +59,7 @@ export default function VideoGrid({
     <FlatList
       data={videos}
       renderItem={renderItem}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.feedEntryId || item.id}
       numColumns={2}
       columnWrapperStyle={videos.length > 1 ? styles.row : undefined}
       scrollEnabled={false}
@@ -90,6 +93,12 @@ const styles = StyleSheet.create({
     padding: 14,
     justifyContent: 'space-between',
   },
+  previewTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
   previewBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
@@ -100,6 +109,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  repostBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#ff8f87',
+    color: '#290905',
+    fontSize: 10,
+    fontWeight: '800',
   },
   previewTitle: {
     color: '#fff',

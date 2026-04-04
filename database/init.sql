@@ -70,6 +70,15 @@ CREATE TABLE IF NOT EXISTS likes (
     PRIMARY KEY (user_id, video_id)
 );
 
+-- Video Reposts Table (zero-copy social distribution)
+CREATE TABLE IF NOT EXISTS video_reposts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, video_id)
+);
+
 -- Comments Table (Nested)
 CREATE TABLE IF NOT EXISTS comments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -125,6 +134,8 @@ CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
 CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
 CREATE INDEX IF NOT EXISTS idx_likes_user ON likes(user_id);
 CREATE INDEX IF NOT EXISTS idx_likes_video ON likes(video_id);
+CREATE INDEX IF NOT EXISTS idx_video_reposts_user_created_at ON video_reposts(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_video_reposts_video ON video_reposts(video_id);
 CREATE INDEX IF NOT EXISTS idx_comments_video ON comments(video_id);
 CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id);
 CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id);

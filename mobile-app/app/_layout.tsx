@@ -25,6 +25,8 @@ export default function RootLayout() {
             <Stack.Screen name="editor" options={{ presentation: 'fullScreenModal', headerShown: false }} />
             <Stack.Screen name="preview" options={{ presentation: 'fullScreenModal', headerShown: false }} />
             <Stack.Screen name="profile/[userId]" options={{ headerShown: false }} />
+            <Stack.Screen name="profile/[userId]/followers" options={{ headerShown: false }} />
+            <Stack.Screen name="profile/[userId]/following" options={{ headerShown: false }} />
             <Stack.Screen name="profile/edit" options={{ headerShown: false }} />
             <Stack.Screen name="notifications" options={{ headerShown: false }} />
             <Stack.Screen name="hashtag/[tag]" options={{ headerShown: false }} />

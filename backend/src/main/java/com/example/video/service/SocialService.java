@@ -36,6 +36,9 @@ public class SocialService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private VideoRepostRepository videoRepostRepository;
+
     // ==================== LIKE ====================
     
     @Transactional
@@ -218,6 +221,48 @@ public class SocialService {
 
         // Return deep link format
         return "videoapp://video/" + videoId;
+    }
+
+    @Transactional
+    public long createRepost(UUID userId, UUID videoId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new RuntimeException("Video not found"));
+
+        if (video.getStatus() != VideoStatus.active) {
+            throw new RuntimeException("Only active videos can be reposted");
+        }
+
+        if (!videoRepostRepository.existsByUserIdAndVideoId(userId, videoId)) {
+            VideoRepost repost = new VideoRepost();
+            repost.setUser(user);
+            repost.setVideo(video);
+            videoRepostRepository.save(repost);
+        }
+
+        return getRepostCount(videoId);
+    }
+
+    @Transactional
+    public long removeRepost(UUID userId, UUID videoId) {
+        videoRepository.findById(videoId)
+                .orElseThrow(() -> new RuntimeException("Video not found"));
+        if (videoRepostRepository.existsByUserIdAndVideoId(userId, videoId)) {
+            videoRepostRepository.deleteByUserIdAndVideoId(userId, videoId);
+        }
+        return getRepostCount(videoId);
+    }
+
+    public boolean hasReposted(UUID userId, UUID videoId) {
+        return videoRepostRepository.existsByUserIdAndVideoId(userId, videoId);
+    }
+
+    public long getRepostCount(UUID videoId) {
+        return videoRepostRepository.countByVideoIds(List.of(videoId)).stream()
+                .findFirst()
+                .map(row -> ((Number) row[1]).longValue())
+                .orElse(0L);
     }
 
     // ==================== VIEW ====================
