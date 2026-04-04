@@ -195,6 +195,7 @@ export default function FeedScreen() {
   };
 
   const getVideoUri = (item: VideoItem) => {
+    console.log(item.videoUrl);
     if (item.videoUrl.startsWith('http')) return item.videoUrl;
     return `${API_BASE_URL.replace('/api', '')}${item.videoUrl}`;
   };
@@ -212,7 +213,7 @@ export default function FeedScreen() {
           onPress={togglePlayPause}
         >
           <Video
-            ref={(ref) => (videoRefs.current[index.toString()] = ref)}
+            ref={(ref) => { videoRefs.current[index.toString()] = ref; }}
             source={{ uri: videoUri }}
             style={styles.video}
             resizeMode={ResizeMode.CONTAIN}

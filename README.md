@@ -87,7 +87,7 @@ Lệnh này sẽ khởi động 3 container:
 - **Stream**: `GET /api/videos/stream/{id}`
   - Stream nội dung video (byte range support).
 
----
+--- 
 
 ## 🛠 Troubleshooting (Gỡ lỗi thường gặp)
 

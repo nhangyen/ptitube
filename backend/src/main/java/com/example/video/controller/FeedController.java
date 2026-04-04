@@ -19,7 +19,7 @@ import java.util.UUID;
 @RequestMapping("/api/feed")
 @CrossOrigin(origins = "*")
 public class FeedController {
-
+ 
     @Autowired
     private RecommendationService recommendationService;
 

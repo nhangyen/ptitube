@@ -66,4 +66,8 @@ public class Video {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    public String getVideoUrl() {
+        if(this.videoUrl.startsWith("http")) return this.videoUrl;
+        return "/api/videos/stream/" + this.id;
+    }
 }

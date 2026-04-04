@@ -107,7 +107,7 @@ public class RecommendationService {
         item.setId(video.getId());
         item.setTitle(video.getTitle());
         item.setDescription(video.getDescription());
-        item.setVideoUrl("/api/videos/stream/" + video.getId());
+        item.setVideoUrl(video.getVideoUrl());
         item.setThumbnailUrl(video.getThumbnailUrl());
         item.setDurationSeconds(video.getDurationSeconds());
         item.setCreatedAt(video.getCreatedAt().toString());
