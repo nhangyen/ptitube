@@ -82,6 +82,7 @@ docker-compose down -v
 docker-compose up -d --build
 3. Reset Dữ liệu & Storage
 
+
 Để xóa sạch dữ liệu DB và video trong MinIO:
 docker-compose down -v
 docker-compose up -d --build
