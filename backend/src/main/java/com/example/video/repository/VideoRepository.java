@@ -16,6 +16,7 @@ public interface VideoRepository extends JpaRepository<Video, UUID> {
     List<Video> findByUserId(UUID userId);
     List<Video> findByUserIdAndStatusOrderByCreatedAtDesc(UUID userId, VideoStatus status);
     List<Video> findByStatusOrderByCreatedAtDesc(VideoStatus status);
+    long countByUserId(UUID userId);
     long countByUserIdAndStatus(UUID userId, VideoStatus status);
 
     @EntityGraph(attributePaths = "user")
@@ -95,4 +96,53 @@ public interface VideoRepository extends JpaRepository<Video, UUID> {
             ORDER BY v.createdAt DESC
             """)
     List<Video> searchActiveVideosFallback(@Param("query") String query, @Param("status") VideoStatus status);
+
+    // ==================== AI FEED QUERIES ====================
+
+    /**
+     * Random N active videos that user has NOT watched yet.
+     */
+    @Query(value = """
+            SELECT v.id FROM videos v
+            WHERE v.status = 'active'
+              AND v.id NOT IN (SELECT vv.video_id FROM video_views vv WHERE vv.user_id = :userId)
+            ORDER BY RANDOM()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<UUID> findRandomUnwatchedVideoIds(@Param("userId") UUID userId, @Param("limit") int limit);
+
+    /**
+     * Random N active videos from users that the given user follows.
+     */
+    @Query(value = """
+            SELECT v.id FROM videos v
+            WHERE v.status = 'active'
+              AND v.user_id IN (SELECT f.following_id FROM follows f WHERE f.follower_id = :userId)
+            ORDER BY RANDOM()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<UUID> findRandomFollowedVideoIds(@Param("userId") UUID userId, @Param("limit") int limit);
+
+    /**
+     * Random N active videos excluding a set of IDs.
+     */
+    @Query(value = """
+            SELECT v.id FROM videos v
+            WHERE v.status = 'active'
+              AND v.id NOT IN (:excludeIds)
+            ORDER BY RANDOM()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<UUID> findRandomVideoIdsExcluding(@Param("excludeIds") Collection<UUID> excludeIds, @Param("limit") int limit);
+
+    /**
+     * Random N active videos (no filter).
+     */
+    @Query(value = """
+            SELECT v.id FROM videos v
+            WHERE v.status = 'active'
+            ORDER BY RANDOM()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<UUID> findRandomActiveVideoIds(@Param("limit") int limit);
 }

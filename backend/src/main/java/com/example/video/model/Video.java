@@ -14,11 +14,14 @@ import java.util.UUID;
 @Entity
 @Table(name = "videos")
 @Data
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class Video {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
+
+    @Column(name = "numeric_id", insertable = false, updatable = false)
+    private Integer numericId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -30,6 +33,8 @@ public class Video {
 
     @JsonProperty("videoUrl")
     public String getStreamUrl() {
+        if (this.videoUrl.startsWith("http"))
+            return this.videoUrl;
         return "/api/videos/stream/" + this.id;
     }
 
@@ -44,6 +49,9 @@ public class Video {
     @Column(name = "duration_seconds")
     private Integer durationSeconds;
 
+    @Column(name = "category_id")
+    private Integer categoryId = 0;
+
     private String format;
 
     @Column(name = "file_size")
@@ -55,7 +63,7 @@ public class Video {
 
     // Search Vector is managed by database trigger, but we can map it if needed.
     // Generally read-only or ignored by JPA for inserts.
-    @Column(name = "search_vector", insertable = false, updatable = false)
+    @Column(name = "search_vector", columnDefinition = "tsvector", insertable = false, updatable = false)
     private String searchVector; // Mapping to String is simple for valid TSVECTOR representation if reading is
                                  // needed.
 

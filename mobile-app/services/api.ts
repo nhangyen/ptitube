@@ -226,7 +226,7 @@ export const uploadVideo = async (
         onProgress(progress);
       }
     }
-  );
+  ); 
 
   const result = await uploadTask.uploadAsync();
   if (!result) {

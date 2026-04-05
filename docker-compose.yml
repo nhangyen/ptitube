@@ -1,5 +1,3 @@
-
-
 services:
   db:
     image: postgres:15-alpine
@@ -36,9 +34,9 @@ services:
   # Backend service - checks for backend folder (will be created in next steps)
   # Uncomment/Enable after creating backend Dockerfile
   backend:
-    build: 
-       context: ./backend
-       dockerfile: Dockerfile
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: video-backend
     restart: always
     depends_on:
@@ -55,18 +53,32 @@ services:
       VIDEO_AI_ENABLED: ${VIDEO_AI_ENABLED:-false}
     volumes:
       - ./credentials:/app/credentials:ro
+      - ./data:/app/data
     ports:
       - "8080:8080"
     networks:
       - video-net
-      
+
+  ai-server:
+    build:
+      context: ./recommendation
+      dockerfile: Dockerfile
+    container_name: video-ai-server
+    restart: always
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    networks:
+      - video-net
+
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: video-tunnel
     restart: always
     # Token should be provided via .env or environment variable
-    # command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN} 
-    # For now, we can run it and wait for manual auth if token not present, 
+    # command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    # For now, we can run it and wait for manual auth if token not present,
     # but usually cloudflared works best with a token for unattended docker usage.
     # Placeholder command to keep container running if no token:
     command: tunnel --no-autoupdate --url http://backend:8080

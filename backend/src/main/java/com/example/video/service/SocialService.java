@@ -34,13 +34,19 @@ public class SocialService {
     private UserRepository userRepository;
 
     @Autowired
+    private VideoViewRepository videoViewRepository;
+
+    @Autowired
     private NotificationService notificationService;
 
     @Autowired
     private VideoRepostRepository videoRepostRepository;
 
+    @Autowired
+    private InteractionLoggerService interactionLoggerService;
+
     // ==================== LIKE ====================
-    
+
     @Transactional
     public boolean toggleLike(UUID userId, UUID videoId) {
         if (likeRepository.existsByUserIdAndVideoId(userId, videoId)) {
@@ -94,8 +100,7 @@ public class SocialService {
                     userId,
                     saved.getParent().getUser().getId(),
                     video.getId(),
-                    saved.getId()
-            );
+                    saved.getId());
         }
 
         return convertToResponse(saved);
@@ -118,7 +123,7 @@ public class SocialService {
     public void deleteComment(UUID commentId, UUID userId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Comment not found"));
-        
+
         if (!comment.getUser().getId().equals(userId)) {
             throw new RuntimeException("Not authorized to delete this comment");
         }
@@ -140,8 +145,8 @@ public class SocialService {
         CommentResponse response = new CommentResponse();
         response.setId(comment.getId());
         response.setContent(comment.getContent());
-        response.setCreatedAt(comment.getCreatedAt() != null 
-                ? comment.getCreatedAt().toString() 
+        response.setCreatedAt(comment.getCreatedAt() != null
+                ? comment.getCreatedAt().toString()
                 : java.time.LocalDateTime.now().toString());
 
         CommentResponse.UserSummary userSummary = new CommentResponse.UserSummary();
@@ -268,10 +273,41 @@ public class SocialService {
     // ==================== VIEW ====================
 
     @Transactional
-    public void recordView(UUID videoId, UUID userId, int watchDuration, boolean completed) {
+    public void recordView(UUID videoId, UUID userId, float watchDuration, boolean completed) {
+        Video video = videoRepository.findById(videoId).orElse(null);
+        User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
+
+        // 1. Log view to video_views table
+        if (user != null && video != null) {
+            VideoView view = new VideoView();
+            view.setUserId(user.getId());
+            view.setVideoId(video.getId());
+            view.setWatchDuration((int) watchDuration);
+            view.setIsCompleted(completed);
+            videoViewRepository.save(view);
+        }
+
+        // 2. Update views in Stats
         videoStatsRepository.findByVideoId(videoId).ifPresent(stats -> {
             stats.setViewCount(stats.getViewCount() + 1);
             videoStatsRepository.save(stats);
         });
+
+        // 3. Log to CSV for AI training if we have user and video info
+        if (video != null && user != null && video.getNumericId() != null && user.getNumericId() != null) {
+            float totalDuration = video.getDurationSeconds() != null ? video.getDurationSeconds() : 30.0f;
+            if (totalDuration <= 0) totalDuration = 30.0f; // Prevent division by zero
+            
+            float watchRatio = watchDuration / totalDuration;
+            long timestamp = System.currentTimeMillis() / 1000;
+
+            interactionLoggerService.logInteraction(
+                user.getNumericId(),
+                video.getNumericId(),
+                timestamp,
+                totalDuration,
+                watchRatio
+            );
+        }
     }
 }

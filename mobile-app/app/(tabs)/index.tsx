@@ -59,12 +59,23 @@ export default function FeedScreen() {
 
   const videoRefs = useRef<Record<string, Video | null>>({});
   const viewRecorded = useRef<Set<string>>(new Set());
+  const viewStartTimeRef = useRef<number>(Date.now());
+  const lastViewedIdRef = useRef<string | null>(null);
+  const currentVideoFinishedRef = useRef<boolean>(false);
   const currentVideoId = videos[currentVideoIndex]?.id ?? null;
 
   useEffect(() => {
     void fetchVideos(0, true);
 
     return () => {
+      // Record final view before unmount
+      if (lastViewedIdRef.current) {
+        const duration = (Date.now() - viewStartTimeRef.current) / 1000;
+        if (duration > 0.5) {
+          void api.recordView(lastViewedIdRef.current, parseFloat(duration.toFixed(2)), currentVideoFinishedRef.current);
+        }
+      }
+
       Object.values(videoRefs.current).forEach((ref) => {
         if (ref) {
           void ref.unloadAsync().catch(() => undefined);
@@ -117,11 +128,9 @@ export default function FeedScreen() {
     if (!loadingMore && hasMore) void fetchVideos(page + 1, false);
   };
 
-  const recordVideoView = useCallback(async (videoId: string) => {
-    if (viewRecorded.current.has(videoId)) return;
-    viewRecorded.current.add(videoId);
+  const recordVideoView = useCallback(async (videoId: string, duration: number, completed: boolean) => {
     try {
-      await api.recordView(videoId, 0, false);
+      await api.recordView(videoId, duration, completed);
     } catch (error) {
       console.error('Error recording view:', error);
     }
@@ -133,9 +142,24 @@ export default function FeedScreen() {
     const visibleIndex = viewableItems[0].index;
     const visibleVideo = viewableItems[0].item as VideoItem;
 
+    if (visibleVideo && visibleVideo.id !== lastViewedIdRef.current) {
+      // 1. Record previous video view if it exists
+      if (lastViewedIdRef.current) {
+        const duration = (Date.now() - viewStartTimeRef.current) / 1000;
+        // Only record if watched for more than 0.5 seconds
+        if (duration > 0.5) {
+          void recordVideoView(lastViewedIdRef.current, parseFloat(duration.toFixed(2)), currentVideoFinishedRef.current);
+        }
+      }
+
+      // 2. Initialize new video tracking
+      lastViewedIdRef.current = visibleVideo.id;
+      viewStartTimeRef.current = Date.now();
+      currentVideoFinishedRef.current = false;
+    }
+
     setCurrentVideoIndex(visibleIndex);
     setIsPaused(false);
-    if (visibleVideo) void recordVideoView(visibleVideo.id);
 
     Object.entries(videoRefs.current).forEach(([videoId, videoRef]) => {
       if (!videoRef) return;
@@ -182,6 +206,7 @@ export default function FeedScreen() {
   };
 
   const handleFollowChange = (userId: string, following: boolean) => {
+
     setVideos((current) =>
       current.map((video) =>
         video.user.id === userId
@@ -247,6 +272,7 @@ export default function FeedScreen() {
     const canPlay = isFocused && isCurrentVideo && !isPaused;
 
     return (
+
       <View style={[styles.videoCard, { height: containerHeight }]}>
         <TouchableOpacity style={styles.videoTouchable} activeOpacity={1} onPress={togglePlayPause}>
           {shouldMountVideo ? (
@@ -277,6 +303,7 @@ export default function FeedScreen() {
             locations={[0, 0.5, 0.8, 1]}
             style={styles.bottomGradient}
             pointerEvents="none"
+
           />
 
           <View style={styles.contentOverlay}>
