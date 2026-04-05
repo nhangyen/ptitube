@@ -7,16 +7,22 @@ import java.util.UUID;
 @Data
 public class VideoFeedItem {
     private UUID id;
+    private String feedEntryId;
+    private String entryType;
     private String title;
     private String description;
     private String videoUrl;
     private String thumbnailUrl;
     private Integer durationSeconds;
     private UserSummary user;
+    private UserSummary repostedBy;
     private VideoStatsDto stats;
     private List<String> hashtags;
     private boolean likedByCurrentUser;
+    private boolean currentUserHasReposted;
     private String createdAt;
+    private String activityAt;
+    private String repostedAt;
     private double score; // For recommendation ranking
 
     @Data
@@ -33,5 +39,6 @@ public class VideoFeedItem {
         private long likeCount;
         private long commentCount;
         private long shareCount;
+        private long repostCount;
     }
 }

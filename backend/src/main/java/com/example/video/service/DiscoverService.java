@@ -4,11 +4,13 @@ import com.example.video.dto.*;
 import com.example.video.model.Tag;
 import com.example.video.model.User;
 import com.example.video.model.Video;
+import com.example.video.model.VideoRepost;
 import com.example.video.model.VideoStatus;
 import com.example.video.repository.FollowRepository;
 import com.example.video.repository.TagRepository;
 import com.example.video.repository.UserRepository;
 import com.example.video.repository.VideoRepository;
+import com.example.video.repository.VideoRepostRepository;
 import com.example.video.repository.VideoTagRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,9 @@ public class DiscoverService {
 
     @Autowired
     private VideoTagRepository videoTagRepository;
+
+    @Autowired
+    private VideoRepostRepository videoRepostRepository;
 
     public DiscoverResponse getDiscover(UUID currentUserId) {
         DiscoverResponse response = new DiscoverResponse();
@@ -130,7 +135,18 @@ public class DiscoverService {
         return response;
     }
 
-    public VideoFeedItem getVideoDetail(UUID videoId, UUID currentUserId) {
+    public VideoFeedItem getVideoDetail(UUID videoId, UUID currentUserId, UUID repostedByUserId) {
+        if (repostedByUserId != null) {
+            Optional<VideoRepost> repost = videoRepostRepository.findActiveByUserIdAndVideoId(
+                    repostedByUserId,
+                    videoId,
+                    VideoStatus.active
+            );
+            if (repost.isPresent()) {
+                return recommendationService.toFeedItem(repost.get().getVideo(), currentUserId, repost.get());
+            }
+        }
+
         Video video = videoRepository.findById(videoId)
                 .orElseThrow(() -> new RuntimeException("Video not found"));
         return recommendationService.toFeedItem(video, currentUserId);

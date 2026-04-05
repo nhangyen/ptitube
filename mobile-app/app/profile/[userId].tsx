@@ -101,6 +101,21 @@ export default function UserProfileScreen() {
     }
   };
 
+  const handleOpenConnections = (type: 'followers' | 'following') => {
+    if (!userId) {
+      return;
+    }
+
+    router.push(`/profile/${userId}/${type}` as never);
+  };
+
+  const openVideo = (video: VideoItem) => {
+    const repostedByQuery = video.entryType === 'repost' && video.repostedBy?.id
+      ? `?repostedByUserId=${video.repostedBy.id}`
+      : '';
+    router.push(`/video/${video.id}${repostedByQuery}` as never);
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -136,14 +151,22 @@ export default function UserProfileScreen() {
         {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
 
         <View style={styles.statRow}>
-          <View style={styles.statCard}>
+          <TouchableOpacity
+            style={styles.statCard}
+            activeOpacity={0.85}
+            onPress={() => handleOpenConnections('followers')}
+          >
             <Text style={styles.statValue}>{formatNumber(profile?.followerCount)}</Text>
             <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={styles.statCard}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.statCard}
+            activeOpacity={0.85}
+            onPress={() => handleOpenConnections('following')}
+          >
             <Text style={styles.statValue}>{formatNumber(profile?.followingCount)}</Text>
             <Text style={styles.statLabel}>Following</Text>
-          </View>
+          </TouchableOpacity>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{formatNumber(profile?.videoCount)}</Text>
             <Text style={styles.statLabel}>Videos</Text>
@@ -164,7 +187,7 @@ export default function UserProfileScreen() {
       <Text style={styles.sectionTitle}>Video grid</Text>
       <VideoGrid
         videos={videos}
-        onVideoPress={(video) => router.push(`/video/${video.id}` as never)}
+        onVideoPress={openVideo}
         emptyTitle="No public videos"
         emptySubtitle="This creator has not published any active videos yet."
       />

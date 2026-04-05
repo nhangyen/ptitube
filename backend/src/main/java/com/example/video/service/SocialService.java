@@ -40,6 +40,9 @@ public class SocialService {
     private NotificationService notificationService;
 
     @Autowired
+    private VideoRepostRepository videoRepostRepository;
+
+    @Autowired
     private InteractionLoggerService interactionLoggerService;
 
     // ==================== LIKE ====================
@@ -126,8 +129,9 @@ public class SocialService {
         }
 
         UUID videoId = comment.getVideo().getId();
+        int deletedCount = countCommentTree(comment.getId());
         commentRepository.delete(comment);
-        updateCommentCount(videoId, -1);
+        updateCommentCount(videoId, -deletedCount);
     }
 
     private void updateCommentCount(UUID videoId, int delta) {
@@ -156,12 +160,22 @@ public class SocialService {
 
     private CommentResponse convertToResponseWithReplies(Comment comment) {
         CommentResponse response = convertToResponse(comment);
-        if (comment.getReplies() != null && !comment.getReplies().isEmpty()) {
-            response.setReplies(comment.getReplies().stream()
-                    .map(this::convertToResponse)
+        List<Comment> replies = commentRepository.findByParentIdOrderByCreatedAtAsc(comment.getId());
+        if (!replies.isEmpty()) {
+            response.setReplies(replies.stream()
+                    .map(this::convertToResponseWithReplies)
                     .collect(Collectors.toList()));
         }
         return response;
+    }
+
+    private int countCommentTree(UUID commentId) {
+        List<Comment> replies = commentRepository.findByParentIdOrderByCreatedAtAsc(commentId);
+        int total = 1;
+        for (Comment reply : replies) {
+            total += countCommentTree(reply.getId());
+        }
+        return total;
     }
 
     // ==================== FOLLOW ====================
@@ -212,6 +226,48 @@ public class SocialService {
 
         // Return deep link format
         return "videoapp://video/" + videoId;
+    }
+
+    @Transactional
+    public long createRepost(UUID userId, UUID videoId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new RuntimeException("Video not found"));
+
+        if (video.getStatus() != VideoStatus.active) {
+            throw new RuntimeException("Only active videos can be reposted");
+        }
+
+        if (!videoRepostRepository.existsByUserIdAndVideoId(userId, videoId)) {
+            VideoRepost repost = new VideoRepost();
+            repost.setUser(user);
+            repost.setVideo(video);
+            videoRepostRepository.save(repost);
+        }
+
+        return getRepostCount(videoId);
+    }
+
+    @Transactional
+    public long removeRepost(UUID userId, UUID videoId) {
+        videoRepository.findById(videoId)
+                .orElseThrow(() -> new RuntimeException("Video not found"));
+        if (videoRepostRepository.existsByUserIdAndVideoId(userId, videoId)) {
+            videoRepostRepository.deleteByUserIdAndVideoId(userId, videoId);
+        }
+        return getRepostCount(videoId);
+    }
+
+    public boolean hasReposted(UUID userId, UUID videoId) {
+        return videoRepostRepository.existsByUserIdAndVideoId(userId, videoId);
+    }
+
+    public long getRepostCount(UUID videoId) {
+        return videoRepostRepository.countByVideoIds(List.of(videoId)).stream()
+                .findFirst()
+                .map(row -> ((Number) row[1]).longValue())
+                .orElse(0L);
     }
 
     // ==================== VIEW ====================

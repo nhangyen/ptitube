@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import VideoGrid from '@/components/VideoGrid';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import type { DashboardData, ProfileData, VideoItem } from '@/services/api';
 import * as api from '@/services/api';
 
@@ -29,11 +30,11 @@ const formatNumber = (num: number = 0) => {
 
 export default function ProfileScreen() {
   const { token, user, login, register, logout, refreshProfile, isLoading: authLoading } = useAuth();
+  const { unreadCount, refreshUnreadCount } = useNotifications();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -51,16 +52,14 @@ export default function ProfileScreen() {
 
     try {
       setLoading(true);
-      const [profileData, videoData, dashboardData, notificationCount] = await Promise.all([
+      const [profileData, videoData, dashboardData] = await Promise.all([
         api.getMyProfile(),
         api.getMyVideos(),
         api.getCreatorDashboard().catch(() => null),
-        api.getUnreadNotificationCount().catch(() => 0),
       ]);
       setProfile(profileData);
       setVideos(videoData);
       setDashboard(dashboardData);
-      setUnreadCount(notificationCount);
     } catch (error) {
       console.error('Error loading profile data:', error);
     } finally {
@@ -76,7 +75,6 @@ export default function ProfileScreen() {
       setProfile(null);
       setVideos([]);
       setDashboard(null);
-      setUnreadCount(0);
       setLoading(false);
     }
   }, [token, loadProfileData]);
@@ -85,14 +83,16 @@ export default function ProfileScreen() {
     useCallback(() => {
       if (token) {
         void loadProfileData();
+        void refreshUnreadCount();
       }
-    }, [token, loadProfileData])
+    }, [token, loadProfileData, refreshUnreadCount])
   );
 
   const handleRefresh = () => {
     setRefreshing(true);
     void refreshProfile();
     void loadProfileData();
+    void refreshUnreadCount();
   };
 
   const handleSubmitAuth = async () => {
@@ -128,6 +128,15 @@ export default function ProfileScreen() {
         onPress: () => void logout(),
       },
     ]);
+  };
+
+  const handleOpenConnections = (type: 'followers' | 'following') => {
+    const targetUserId = profile?.id || user?.id;
+    if (!targetUserId) {
+      return;
+    }
+
+    router.push(`/profile/${targetUserId}/${type}` as never);
   };
 
   if (authLoading || (token && loading)) {
@@ -228,14 +237,14 @@ export default function ProfileScreen() {
         {profile?.email ? <Text style={styles.profileEmail}>{profile.email}</Text> : null}
 
         <View style={styles.statRow}>
-          <View style={styles.statPill}>
+          <TouchableOpacity style={styles.statPill} activeOpacity={0.85} onPress={() => handleOpenConnections('followers')}>
             <Text style={styles.statValue}>{formatNumber(profile?.followerCount)}</Text>
             <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={styles.statPill}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.statPill} activeOpacity={0.85} onPress={() => handleOpenConnections('following')}>
             <Text style={styles.statValue}>{formatNumber(profile?.followingCount)}</Text>
             <Text style={styles.statLabel}>Following</Text>
-          </View>
+          </TouchableOpacity>
           <View style={styles.statPill}>
             <Text style={styles.statValue}>{formatNumber(profile?.videoCount)}</Text>
             <Text style={styles.statLabel}>Videos</Text>

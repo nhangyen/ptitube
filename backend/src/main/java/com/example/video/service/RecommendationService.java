@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Recommendation Engine with AI integration.
@@ -42,6 +43,9 @@ public class RecommendationService {
 
     @Autowired
     private VideoTagRepository videoTagRepository;
+
+    @Autowired
+    private VideoRepostRepository videoRepostRepository;
 
     @Autowired
     private VideoViewRepository videoViewRepository;
@@ -349,7 +353,7 @@ public class RecommendationService {
         }
         FeedContext context = buildFeedContext(videos, currentUserId);
         return videos.stream()
-                .map(video -> convertToFeedItem(video, 0, currentUserId, context))
+                .map(video -> convertToFeedItem(video, calculateScore(video, context), currentUserId, context))
                 .collect(Collectors.toList());
     }
 
@@ -357,6 +361,40 @@ public class RecommendationService {
         return toFeedItems(List.of(video), currentUserId).stream()
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Video not found"));
+    }
+
+    public VideoFeedItem toFeedItem(Video video, UUID currentUserId, VideoRepost repost) {
+        FeedContext context = buildFeedContext(List.of(video), currentUserId);
+        return convertToFeedItem(
+                FeedCandidate.repost(video, repost, calculateRepostScore(video, repost, currentUserId, context)),
+                currentUserId,
+                context
+        );
+    }
+
+    public List<VideoFeedItem> toProfileActivityItems(List<Video> uploads,
+                                                      List<VideoRepost> reposts,
+                                                      UUID currentUserId) {
+        List<FeedCandidate> candidates = new ArrayList<>();
+        if (uploads != null) {
+            uploads.forEach(video -> candidates.add(FeedCandidate.original(video, 0)));
+        }
+        if (reposts != null) {
+            reposts.forEach(repost -> candidates.add(FeedCandidate.repost(repost.getVideo(), repost, 0)));
+        }
+        if (candidates.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        candidates.sort(Comparator.comparing(FeedCandidate::getActivityAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        FeedContext context = buildFeedContext(
+                candidates.stream().map(FeedCandidate::getVideo).collect(Collectors.toList()),
+                currentUserId
+        );
+
+        return candidates.stream()
+                .map(candidate -> convertToFeedItem(candidate, currentUserId, context))
+                .collect(Collectors.toList());
     }
 
     public List<Video> getRecentActiveVideos(int limit) {
@@ -395,24 +433,111 @@ public class RecommendationService {
 
         Set<UUID> likedVideoIds = Collections.emptySet();
         Set<UUID> followedUserIds = Collections.emptySet();
+        Set<UUID> currentUserRepostedVideoIds = Collections.emptySet();
         if (currentUserId != null) {
             likedVideoIds = new HashSet<>(likeRepository.findVideoIdsByUserIdAndVideoIdIn(currentUserId, videoIds));
             followedUserIds = new HashSet<>(followRepository.findFollowingIdsByFollowerIdAndFollowingIdIn(currentUserId, ownerIds));
+            currentUserRepostedVideoIds = new HashSet<>(videoRepostRepository.findVideoIdsByUserIdAndVideoIdIn(currentUserId, videoIds));
         }
 
-        return new FeedContext(statsByVideoId, hashtagsByVideoId, likedVideoIds, followedUserIds);
+        Map<UUID, Long> repostCountByVideoId = videoRepostRepository.countByVideoIds(videoIds).stream()
+                .collect(Collectors.toMap(
+                        row -> (UUID) row[0],
+                        row -> ((Number) row[1]).longValue()
+                ));
+
+        return new FeedContext(
+                statsByVideoId,
+                hashtagsByVideoId,
+                likedVideoIds,
+                followedUserIds,
+                currentUserRepostedVideoIds,
+                repostCountByVideoId
+        );
     }
 
-    private VideoFeedItem convertToFeedItem(Video video, double score, UUID currentUserId, FeedContext context) {
+    private List<FeedCandidate> getOriginalCandidates(UUID currentUserId, int fetchSize) {
+        List<UUID> originalIds = videoRepository.findRecommendedVideoIds(fetchSize, 0);
+        if (originalIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<UUID, Integer> positionById = new HashMap<>();
+        for (int index = 0; index < originalIds.size(); index++) {
+            positionById.put(originalIds.get(index), index);
+        }
+
+        List<Video> videos = videoRepository.findAllWithUserByIdIn(originalIds).stream()
+                .sorted(Comparator.comparingInt(video -> positionById.getOrDefault(video.getId(), Integer.MAX_VALUE)))
+                .collect(Collectors.toList());
+        FeedContext context = buildFeedContext(videos, currentUserId);
+
+        return videos.stream()
+                .map(video -> FeedCandidate.original(video, calculateScore(video, context)))
+                .collect(Collectors.toList());
+    }
+
+    private List<FeedCandidate> getRepostCandidates(UUID currentUserId, int fetchSize) {
+        if (currentUserId == null) {
+            return Collections.emptyList();
+        }
+
+        LinkedHashSet<UUID> networkUserIds = followRepository.findByFollowerIdOrderByCreatedAtDesc(currentUserId).stream()
+                .map(Follow::getFollowingId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        networkUserIds.add(currentUserId);
+
+        if (networkUserIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<VideoRepost> reposts = videoRepostRepository.findActiveByUserIdsOrderByCreatedAtDesc(
+                networkUserIds,
+                VideoStatus.active,
+                PageRequest.of(0, fetchSize)
+        );
+        if (reposts.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        FeedContext context = buildFeedContext(
+                reposts.stream().map(VideoRepost::getVideo).collect(Collectors.toList()),
+                currentUserId
+        );
+
+        return reposts.stream()
+                .map(repost -> FeedCandidate.repost(
+                        repost.getVideo(),
+                        repost,
+                        calculateRepostScore(repost.getVideo(), repost, currentUserId, context)
+                ))
+                .collect(Collectors.toList());
+    }
+
+    private double calculateRepostScore(Video video, VideoRepost repost, UUID currentUserId, FeedContext context) {
+        double score = calculateScore(video, context) + REPOST_BASE_BOOST;
+        long hoursOld = Math.max(0, ChronoUnit.HOURS.between(repost.getCreatedAt(), LocalDateTime.now()));
+        score += Math.max(0, 48 - hoursOld);
+        if (currentUserId != null && repost.getUser() != null && currentUserId.equals(repost.getUser().getId())) {
+            score += SELF_REPOST_BOOST;
+        }
+        return score;
+    }
+
+    private VideoFeedItem convertToFeedItem(FeedCandidate candidate, UUID currentUserId, FeedContext context) {
+        Video video = candidate.getVideo();
         VideoFeedItem item = new VideoFeedItem();
         item.setId(video.getId());
+        item.setFeedEntryId(candidate.isRepost() ? "repost:" + candidate.getRepost().getId() : "video:" + video.getId());
+        item.setEntryType(candidate.isRepost() ? "repost" : "original");
         item.setTitle(video.getTitle());
         item.setDescription(video.getDescription());
         item.setVideoUrl(video.getVideoUrl());
         item.setThumbnailUrl(video.getThumbnailUrl());
         item.setDurationSeconds(video.getDurationSeconds());
         item.setCreatedAt(video.getCreatedAt().toString());
-        item.setScore(score);
+        item.setActivityAt(candidate.getActivityAt() != null ? candidate.getActivityAt().toString() : video.getCreatedAt().toString());
+        item.setScore(candidate.getRankingScore());
 
         // User summary
         VideoFeedItem.UserSummary userSummary = new VideoFeedItem.UserSummary();
@@ -424,18 +549,31 @@ public class RecommendationService {
         }
         item.setUser(userSummary);
 
+        if (candidate.isRepost()) {
+            VideoFeedItem.UserSummary repostedBy = new VideoFeedItem.UserSummary();
+            repostedBy.setId(candidate.getRepost().getUser().getId());
+            repostedBy.setUsername(candidate.getRepost().getUser().getUsername());
+            repostedBy.setAvatarUrl(candidate.getRepost().getUser().getAvatarUrl());
+            item.setRepostedBy(repostedBy);
+            item.setRepostedAt(candidate.getRepost().getCreatedAt() != null
+                    ? candidate.getRepost().getCreatedAt().toString()
+                    : null);
+        }
+
         VideoStats stats = context.statsByVideoId.getOrDefault(video.getId(), createDefaultStats(video.getId()));
         VideoFeedItem.VideoStatsDto statsDto = new VideoFeedItem.VideoStatsDto();
         statsDto.setViewCount(stats.getViewCount() != null ? stats.getViewCount() : 0);
         statsDto.setLikeCount(stats.getLikeCount() != null ? stats.getLikeCount() : 0);
         statsDto.setCommentCount(stats.getCommentCount() != null ? stats.getCommentCount() : 0);
         statsDto.setShareCount(stats.getShareCount() != null ? stats.getShareCount() : 0);
+        statsDto.setRepostCount(context.repostCountByVideoId.getOrDefault(video.getId(), 0L));
         item.setStats(statsDto);
 
         item.setHashtags(context.hashtagsByVideoId.getOrDefault(video.getId(), Collections.emptyList()));
 
         if (currentUserId != null) {
             item.setLikedByCurrentUser(context.likedVideoIds.contains(video.getId()));
+            item.setCurrentUserHasReposted(context.currentUserRepostedVideoIds.contains(video.getId()));
         }
 
         return item;
@@ -456,15 +594,21 @@ public class RecommendationService {
         private final Map<UUID, List<String>> hashtagsByVideoId;
         private final Set<UUID> likedVideoIds;
         private final Set<UUID> followedUserIds;
+        private final Set<UUID> currentUserRepostedVideoIds;
+        private final Map<UUID, Long> repostCountByVideoId;
 
         private FeedContext(Map<UUID, VideoStats> statsByVideoId,
                             Map<UUID, List<String>> hashtagsByVideoId,
                             Set<UUID> likedVideoIds,
-                            Set<UUID> followedUserIds) {
+                            Set<UUID> followedUserIds,
+                            Set<UUID> currentUserRepostedVideoIds,
+                            Map<UUID, Long> repostCountByVideoId) {
             this.statsByVideoId = statsByVideoId;
             this.hashtagsByVideoId = hashtagsByVideoId;
             this.likedVideoIds = likedVideoIds;
             this.followedUserIds = followedUserIds;
+            this.currentUserRepostedVideoIds = currentUserRepostedVideoIds;
+            this.repostCountByVideoId = repostCountByVideoId;
         }
 
         private static FeedContext empty() {
@@ -472,8 +616,52 @@ public class RecommendationService {
                     Collections.emptyMap(),
                     Collections.emptyMap(),
                     Collections.emptySet(),
-                    Collections.emptySet()
+                    Collections.emptySet(),
+                    Collections.emptySet(),
+                    Collections.emptyMap()
             );
+        }
+    }
+
+    private static class FeedCandidate {
+        private final Video video;
+        private final VideoRepost repost;
+        private final double rankingScore;
+        private final LocalDateTime activityAt;
+
+        private FeedCandidate(Video video, VideoRepost repost, double rankingScore, LocalDateTime activityAt) {
+            this.video = video;
+            this.repost = repost;
+            this.rankingScore = rankingScore;
+            this.activityAt = activityAt;
+        }
+
+        private static FeedCandidate original(Video video, double rankingScore) {
+            return new FeedCandidate(video, null, rankingScore, video.getCreatedAt());
+        }
+
+        private static FeedCandidate repost(Video video, VideoRepost repost, double rankingScore) {
+            return new FeedCandidate(video, repost, rankingScore, repost.getCreatedAt());
+        }
+
+        private Video getVideo() {
+            return video;
+        }
+
+        private VideoRepost getRepost() {
+            return repost;
+        }
+
+        private double getRankingScore() {
+            return rankingScore;
+        }
+
+        private LocalDateTime getActivityAt() {
+            return activityAt;
+        }
+
+        private boolean isRepost() {
+            return repost != null;
         }
     }
 }

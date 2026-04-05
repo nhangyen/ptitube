@@ -2,6 +2,7 @@ package com.example.video.service;
 
 import com.example.video.dto.CreatorDashboard;
 import com.example.video.dto.UpdateProfileRequest;
+import com.example.video.dto.UserCardResponse;
 import com.example.video.dto.UserProfile;
 import com.example.video.dto.VideoFeedItem;
 import com.example.video.model.*;
@@ -11,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +43,9 @@ public class AdminService {
 
     @Autowired
     private RecommendationService recommendationService;
+
+    @Autowired
+    private VideoRepostRepository videoRepostRepository;
 
     // ==================== CONTENT MODERATION ====================
 
@@ -209,7 +215,7 @@ public class AdminService {
         profile.setFollowingCount(followRepository.countByFollowerId(userId));
 
         List<Video> activeVideos = videoRepository.findByUserIdAndStatusOrderByCreatedAtDesc(userId, VideoStatus.active);
-        long videoCount = activeVideos.size();
+        long videoCount = activeVideos.size() + videoRepostRepository.countActiveByUserIdAndVideoStatus(userId, VideoStatus.active);
         profile.setVideoCount(videoCount);
 
         long totalLikes = activeVideos.isEmpty()
@@ -229,10 +235,35 @@ public class AdminService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return recommendationService.toFeedItems(
+        return recommendationService.toProfileActivityItems(
                 videoRepository.findByUserIdAndStatusOrderByCreatedAtDesc(userId, VideoStatus.active),
+                videoRepostRepository.findActiveByUserIdOrderByCreatedAtDesc(userId, VideoStatus.active),
                 currentUserId
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserCardResponse> getFollowers(UUID userId, UUID currentUserId) {
+        userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<User> users = followRepository.findByFollowingIdOrderByCreatedAtDesc(userId).stream()
+                .map(Follow::getFollower)
+                .collect(Collectors.toList());
+
+        return toUserCards(users, currentUserId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserCardResponse> getFollowing(UUID userId, UUID currentUserId) {
+        userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<User> users = followRepository.findByFollowerIdOrderByCreatedAtDesc(userId).stream()
+                .map(Follow::getFollowing)
+                .collect(Collectors.toList());
+
+        return toUserCards(users, currentUserId);
     }
 
     @Transactional
@@ -258,5 +289,41 @@ public class AdminService {
 
         userRepository.save(user);
         return getUserProfile(userId, userId);
+    }
+
+    private List<UserCardResponse> toUserCards(List<User> users, UUID currentUserId) {
+        if (users.isEmpty()) {
+            return List.of();
+        }
+
+        List<UUID> userIds = users.stream().map(User::getId).collect(Collectors.toList());
+
+        Map<UUID, Long> followerCounts = followRepository.countFollowersByFollowingIds(userIds).stream()
+                .collect(Collectors.toMap(
+                        entry -> (UUID) entry[0],
+                        entry -> (Long) entry[1]
+                ));
+
+        Map<UUID, Long> videoCounts = videoRepository.countByUserIdsAndStatus(userIds, VideoStatus.active).stream()
+                .collect(Collectors.toMap(
+                        entry -> (UUID) entry[0],
+                        entry -> (Long) entry[1]
+                ));
+
+        Set<UUID> followedIds = currentUserId == null
+                ? Set.of()
+                : Set.copyOf(followRepository.findFollowingIdsByFollowerIdAndFollowingIdIn(currentUserId, userIds));
+
+        return users.stream().map(user -> {
+            UserCardResponse response = new UserCardResponse();
+            response.setId(user.getId());
+            response.setUsername(user.getUsername());
+            response.setAvatarUrl(user.getAvatarUrl());
+            response.setBio(user.getBio());
+            response.setFollowerCount(followerCounts.getOrDefault(user.getId(), 0L));
+            response.setVideoCount(videoCounts.getOrDefault(user.getId(), 0L));
+            response.setFollowedByCurrentUser(currentUserId != null && followedIds.contains(user.getId()));
+            return response;
+        }).collect(Collectors.toList());
     }
 }

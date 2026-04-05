@@ -146,6 +146,50 @@ public class SocialController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/reposts/{videoId}")
+    public ResponseEntity<Map<String, Object>> createRepost(
+            @PathVariable UUID videoId,
+            Authentication authentication) {
+        UUID userId = getCurrentUserId(authentication);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Please login first"));
+        }
+
+        try {
+            long repostCount = socialService.createRepost(userId, videoId);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "reposted", true,
+                    "repostCount", repostCount,
+                    "message", "Video reposted"
+            ));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/reposts/{videoId}")
+    public ResponseEntity<Map<String, Object>> removeRepost(
+            @PathVariable UUID videoId,
+            Authentication authentication) {
+        UUID userId = getCurrentUserId(authentication);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Please login first"));
+        }
+
+        try {
+            long repostCount = socialService.removeRepost(userId, videoId);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "reposted", false,
+                    "repostCount", repostCount,
+                    "message", "Repost removed"
+            ));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+        }
+    }
+
     private UUID getCurrentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return null;

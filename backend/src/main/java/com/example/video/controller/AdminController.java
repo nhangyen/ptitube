@@ -3,6 +3,7 @@ package com.example.video.controller;
 import com.example.video.dto.CreatorDashboard;
 import com.example.video.dto.ReportRequest;
 import com.example.video.dto.UpdateProfileRequest;
+import com.example.video.dto.UserCardResponse;
 import com.example.video.dto.UserProfile;
 import com.example.video.dto.VideoFeedItem;
 import com.example.video.model.Report;
@@ -186,6 +187,22 @@ public class AdminController {
             Authentication authentication) {
         UUID currentUserId = getCurrentUserId(authentication);
         return ResponseEntity.ok(adminService.getUserVideos(userId, currentUserId));
+    }
+
+    @GetMapping("/users/{userId}/followers")
+    public ResponseEntity<List<UserCardResponse>> getFollowers(
+            @PathVariable UUID userId,
+            Authentication authentication) {
+        UUID currentUserId = getCurrentUserId(authentication);
+        return ResponseEntity.ok(adminService.getFollowers(userId, currentUserId));
+    }
+
+    @GetMapping("/users/{userId}/following")
+    public ResponseEntity<List<UserCardResponse>> getFollowing(
+            @PathVariable UUID userId,
+            Authentication authentication) {
+        UUID currentUserId = getCurrentUserId(authentication);
+        return ResponseEntity.ok(adminService.getFollowing(userId, currentUserId));
     }
 
     @GetMapping("/profile/videos")

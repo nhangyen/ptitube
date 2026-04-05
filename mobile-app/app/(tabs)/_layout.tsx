@@ -1,10 +1,11 @@
 import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -25,10 +26,24 @@ function CreateTabButton(props: any) {
   );
 }
 
+function NotificationsTabIcon({ color, unreadCount }: { color: string; unreadCount: number }) {
+  return (
+    <View style={styles.tabIconWrap}>
+      <IconSymbol size={24} name="bell.fill" color={color} />
+      {unreadCount > 0 ? (
+        <View style={styles.tabBadge}>
+          <Text style={styles.tabBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { unreadCount } = useNotifications();
   const isModerator = user?.role === 'admin' || user?.role === 'moderator';
 
   return (
@@ -64,7 +79,7 @@ export default function TabLayout() {
         name="alerts"
         options={{
           title: 'Notifications',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="bell.fill" color={color} />,
+          tabBarIcon: ({ color }) => <NotificationsTabIcon color={color} unreadCount={unreadCount} />,
         }}
       />
       <Tabs.Screen
@@ -112,5 +127,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
+  },
+  tabIconWrap: {
+    width: 30,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#000',
+  },
+  tabBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
   },
 });
