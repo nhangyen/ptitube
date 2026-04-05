@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS videos (
     title VARCHAR(100) NOT NULL,
     description TEXT,
     duration_seconds INTEGER,
+    category_id INTEGER DEFAULT 0,
     format VARCHAR(20),
     file_size BIGINT,
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'failed', 'banned', 'reviewing')),

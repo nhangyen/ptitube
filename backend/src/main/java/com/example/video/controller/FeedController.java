@@ -50,13 +50,12 @@ public class FeedController {
     @PostMapping("/view/{videoId}")
     public ResponseEntity<Map<String, Object>> recordView(
             @PathVariable UUID videoId,
-            @RequestParam(defaultValue = "0") int watchDuration,
+            @RequestParam(defaultValue = "0") float watchDuration,
             @RequestParam(defaultValue = "false") boolean completed,
             Authentication authentication) {
         
         UUID currentUserId = getCurrentUserId(authentication);
         socialService.recordView(videoId, currentUserId, watchDuration, completed);
-        
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("message", "View recorded");

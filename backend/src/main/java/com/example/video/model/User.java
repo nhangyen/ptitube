@@ -12,11 +12,14 @@ import java.util.UUID;
 @Entity
 @Table(name = "users")
 @Data
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password"})
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler", "password" })
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
+
+    @Column(name = "numeric_id", insertable = false, updatable = false)
+    private Integer numericId;
 
     @Column(unique = true, nullable = false)
     private String username;

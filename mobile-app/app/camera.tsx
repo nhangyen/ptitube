@@ -1,15 +1,10 @@
 /**
  * Camera Screen — Quay video multi-segment
  *
- * Sử dụng react-native-vision-camera.
- * - Giữ nút quay để bắt đầu → thả để tạm dừng → giữ tiếp để nối clip mới.
- * - Thanh progress hiển thị tổng thời lượng các segment.
- * - Nút lật camera (front/back).
- * - Nút xóa clip cuối (undo).
- * - Nút "Tiếp" → ghép segments → navigate to /editor.
+ * Chuyển sang expo-camera để hỗ trợ Expo Go.
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -19,19 +14,15 @@ import {
   Alert,
   ActivityIndicator,
   SafeAreaView,
-  Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+} from "react-native";
+import { useRouter } from "expo-router";
 import {
-  Camera,
-  useCameraDevice,
-  useCameraPermission,
-  useMicrophonePermission,
-  VideoFile,
-} from 'react-native-vision-camera';
-import { cleanupLocalFiles, concatSegments } from '@/services/ffmpegService';
+  CameraView,
+  useCameraPermissions,
+  useMicrophonePermissions,
+} from "expo-camera";
+import { cleanupLocalFiles, concatSegments } from "@/services/ffmpegService";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAX_DURATION = 60; // Tối đa 60 giây
 
 interface Segment {
@@ -41,116 +32,137 @@ interface Segment {
 
 export default function CameraScreen() {
   const router = useRouter();
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<CameraView>(null);
 
   // Permissions
-  const { hasPermission: hasCamPerm, requestPermission: requestCam } = useCameraPermission();
-  const { hasPermission: hasMicPerm, requestPermission: requestMic } = useMicrophonePermission();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [microphonePermission, requestMicrophonePermission] =
+    useMicrophonePermissions();
 
   // Camera state
-  const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
-  const device = useCameraDevice(cameraPosition);
+  const [facing, setFacing] = useState<"back" | "front">("back");
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
   const [segments, setSegments] = useState<Segment[]>([]);
-  const [currentSegmentStart, setCurrentSegmentStart] = useState<number | null>(null);
+  const [currentSegmentStart, setCurrentSegmentStart] = useState<number | null>(
+    null,
+  );
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Timer để đếm thời gian đang quay
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0) + recordingElapsed;
-  const progressPercent = Math.min(100, (totalDuration / MAX_DURATION) * 100);
+  const totalDuration =
+    segments.reduce((sum, s) => sum + s.duration, 0) + recordingElapsed;
 
   // Request permissions
   useEffect(() => {
     (async () => {
-      if (!hasCamPerm) await requestCam();
-      if (!hasMicPerm) await requestMic();
+      if (!cameraPermission?.granted) await requestCameraPermission();
+      if (!microphonePermission?.granted) await requestMicrophonePermission();
     })();
-  }, []);
+  }, [
+    cameraPermission,
+    microphonePermission,
+    requestCameraPermission,
+    requestMicrophonePermission,
+  ]);
 
-  // Cleanup timer
+  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  const startRecording = useCallback(async () => {
-    if (!cameraRef.current || isRecording) return;
-    if (totalDuration >= MAX_DURATION) {
-      Alert.alert('Đã đạt giới hạn', `Tổng thời lượng tối đa là ${MAX_DURATION} giây.`);
-      return;
-    }
-
-    setIsRecording(true);
-    setCurrentSegmentStart(Date.now());
-    setRecordingElapsed(0);
-
-    // Start elapsed timer
-    timerRef.current = setInterval(() => {
-      setRecordingElapsed((prev) => {
-        const newVal = prev + 0.1;
-        const newTotal = segments.reduce((sum, s) => sum + s.duration, 0) + newVal;
-        if (newTotal >= MAX_DURATION) {
-          // Auto stop when reaching limit
-          stopRecording();
-        }
-        return newVal;
-      });
-    }, 100);
-
-    cameraRef.current.startRecording({
-      onRecordingFinished: (video: VideoFile) => {
-        const duration = recordingElapsed || ((Date.now() - (currentSegmentStart || Date.now())) / 1000);
-        setSegments((prev) => [
-          ...prev,
-          { uri: `file://${video.path}`, duration: Math.max(0.5, duration) },
-        ]);
-        setIsRecording(false);
-        setRecordingElapsed(0);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-      },
-      onRecordingError: (error) => {
-        console.error('Recording error:', error);
-        setIsRecording(false);
-        setRecordingElapsed(0);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-      },
-    });
-  }, [isRecording, totalDuration, segments, currentSegmentStart]);
-
   const stopRecording = useCallback(async () => {
     if (!cameraRef.current || !isRecording) return;
-    try {
-      await cameraRef.current.stopRecording();
-    } catch {}
+
+    setIsRecording(false);
+    setRecordingElapsed(0);
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+
+    try {
+      await cameraRef.current.stopRecording();
+    } catch (err) {
+      console.error("Stop recording error:", err);
+    }
   }, [isRecording]);
 
+  const startRecording = useCallback(async () => {
+    if (!cameraRef.current || isRecording) return;
+    if (totalDuration >= MAX_DURATION) {
+      Alert.alert(
+        "Đã đạt giới hạn",
+        `Tổng thời lượng tối đa là ${MAX_DURATION} giây.`,
+      );
+      return;
+    }
+
+    try {
+      setIsRecording(true);
+      setCurrentSegmentStart(Date.now());
+      setRecordingElapsed(0);
+
+      // Start elapsed timer
+      timerRef.current = setInterval(() => {
+        setRecordingElapsed((prev) => {
+          const newVal = prev + 0.1;
+          const currentTotal =
+            segments.reduce((sum, s) => sum + s.duration, 0) + newVal;
+          if (currentTotal >= MAX_DURATION) {
+            void stopRecording();
+          }
+          return newVal;
+        });
+      }, 100);
+
+      const video = await cameraRef.current.recordAsync({
+        maxDuration:
+          MAX_DURATION - segments.reduce((sum, s) => sum + s.duration, 0),
+      });
+
+      if (video) {
+        const duration =
+          (Date.now() - (currentSegmentStart || Date.now())) / 1000;
+        setSegments((prev) => [
+          ...prev,
+          { uri: video.uri, duration: Math.max(0.5, duration) },
+        ]);
+      }
+    } catch (error) {
+      console.error("Recording error:", error);
+      setIsRecording(false);
+      setRecordingElapsed(0);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  }, [
+    isRecording,
+    totalDuration,
+    segments,
+    currentSegmentStart,
+    stopRecording,
+  ]);
+
   const handleFlipCamera = () => {
-    setCameraPosition((prev) => (prev === 'back' ? 'front' : 'back'));
+    setFacing((current) => (current === "back" ? "front" : "back"));
   };
 
   const handleDeleteLastSegment = () => {
     if (segments.length === 0) return;
-    Alert.alert('Xóa clip cuối?', 'Bạn có chắc muốn xóa đoạn vừa quay?', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert("Xóa clip cuối?", "Bạn có chắc muốn xóa đoạn vừa quay?", [
+      { text: "Hủy", style: "cancel" },
       {
-        text: 'Xóa',
-        style: 'destructive',
+        text: "Xóa",
+        style: "destructive",
         onPress: () => {
           const lastSegment = segments[segments.length - 1];
           void cleanupLocalFiles([lastSegment?.uri]);
@@ -162,7 +174,7 @@ export default function CameraScreen() {
 
   const handleNext = useCallback(async () => {
     if (segments.length === 0) {
-      Alert.alert('Chưa có video', 'Hãy quay ít nhất một đoạn video.');
+      Alert.alert("Chưa có video", "Hãy quay ít nhất một đoạn video.");
       return;
     }
 
@@ -172,18 +184,17 @@ export default function CameraScreen() {
       if (segments.length === 1) {
         videoUri = segments[0].uri;
       } else {
-        // Ghép nhiều segment bằng FFmpeg
         videoUri = await concatSegments(segments.map((s) => s.uri));
         await cleanupLocalFiles(segments.map((segment) => segment.uri));
       }
 
       router.push({
-        pathname: '/editor' as any,
+        pathname: "/editor" as any,
         params: { videoUri },
       });
     } catch (error: any) {
-      console.error('Concat error:', error);
-      Alert.alert('Lỗi', 'Không thể ghép các đoạn video. Vui lòng thử lại.');
+      console.error("Concat error:", error);
+      Alert.alert("Lỗi", "Không thể ghép các đoạn video. Vui lòng thử lại.");
     } finally {
       setIsProcessing(false);
     }
@@ -191,17 +202,27 @@ export default function CameraScreen() {
 
   const handleClose = () => {
     if (segments.length > 0) {
-      Alert.alert('Thoát?', 'Các đoạn video đã quay sẽ bị mất.', [
-        { text: 'Hủy', style: 'cancel' },
-        { text: 'Thoát', style: 'destructive', onPress: () => router.back() },
+      Alert.alert("Thoát?", "Các đoạn video đã quay sẽ bị mất.", [
+        { text: "Hủy", style: "cancel" },
+        { text: "Thoát", style: "destructive", onPress: () => router.back() },
       ]);
     } else {
       router.back();
     }
   };
 
-  // Permission check
-  if (!hasCamPerm || !hasMicPerm) {
+  if (!cameraPermission || !microphonePermission) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.permissionContainer}>
+          <ActivityIndicator size="large" color="#FF3B30" />
+          <Text style={styles.permissionText}>Đang kiểm tra quyền...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!cameraPermission.granted || !microphonePermission.granted) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.permissionContainer}>
@@ -211,13 +232,16 @@ export default function CameraScreen() {
           <TouchableOpacity
             style={styles.permissionBtn}
             onPress={async () => {
-              await requestCam();
-              await requestMic();
+              await requestCameraPermission();
+              await requestMicrophonePermission();
             }}
           >
             <Text style={styles.permissionBtnText}>Cấp quyền</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+          >
             <Text style={styles.backBtnText}>Quay lại</Text>
           </TouchableOpacity>
         </View>
@@ -225,30 +249,19 @@ export default function CameraScreen() {
     );
   }
 
-  if (!device) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.permissionContainer}>
-          <ActivityIndicator size="large" color="#FF3B30" />
-          <Text style={styles.permissionText}>Đang khởi tạo camera...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      {/* Camera Preview */}
-      <Camera
+      <CameraView
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={true}
-        video={true}
-        audio={true}
+        facing={facing}
+        mode="video"
+        onMountError={(error) => {
+          console.error("Camera mount error:", error);
+          Alert.alert("Lỗi", "Không thể khởi động camera.");
+        }}
       />
 
-      {/* Processing Overlay */}
       {isProcessing && (
         <View style={styles.processingOverlay}>
           <ActivityIndicator size="large" color="#FF3B30" />
@@ -256,15 +269,12 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* Top Bar */}
       <SafeAreaView style={styles.topBar}>
         <TouchableOpacity style={styles.topBtn} onPress={handleClose}>
           <Text style={styles.topBtnText}>✕</Text>
         </TouchableOpacity>
 
-        {/* Progress Bar */}
         <View style={styles.progressContainer}>
-          {/* Segment indicators */}
           <View style={styles.progressTrack}>
             {segments.map((seg, i) => {
               const segPercent = (seg.duration / MAX_DURATION) * 100;
@@ -284,7 +294,6 @@ export default function CameraScreen() {
                 />
               );
             })}
-            {/* Current recording progress */}
             {isRecording && (
               <View
                 style={[
@@ -307,11 +316,12 @@ export default function CameraScreen() {
         </TouchableOpacity>
       </SafeAreaView>
 
-      {/* Bottom Controls */}
       <View style={styles.bottomBar}>
-        {/* Xóa clip cuối */}
         <TouchableOpacity
-          style={[styles.sideBtn, segments.length === 0 && styles.sideBtnDisabled]}
+          style={[
+            styles.sideBtn,
+            segments.length === 0 && styles.sideBtnDisabled,
+          ]}
           onPress={handleDeleteLastSegment}
           disabled={segments.length === 0 || isRecording}
         >
@@ -319,13 +329,9 @@ export default function CameraScreen() {
           <Text style={styles.sideBtnLabel}>Hoàn tác</Text>
         </TouchableOpacity>
 
-        {/* Nút quay */}
         <View style={styles.recordContainer}>
           <Pressable
-            style={[
-              styles.recordBtn,
-              isRecording && styles.recordBtnActive,
-            ]}
+            style={[styles.recordBtn, isRecording && styles.recordBtnActive]}
             onPressIn={startRecording}
             onPressOut={stopRecording}
           >
@@ -337,13 +343,15 @@ export default function CameraScreen() {
             />
           </Pressable>
           <Text style={styles.recordHint}>
-            {isRecording ? 'Thả để dừng' : 'Giữ để quay'}
+            {isRecording ? "Thả để dừng" : "Giữ để quay"}
           </Text>
         </View>
 
-        {/* Nút Tiếp */}
         <TouchableOpacity
-          style={[styles.sideBtn, segments.length === 0 && styles.sideBtnDisabled]}
+          style={[
+            styles.sideBtn,
+            segments.length === 0 && styles.sideBtnDisabled,
+          ]}
           onPress={handleNext}
           disabled={segments.length === 0 || isRecording || isProcessing}
         >
@@ -352,7 +360,6 @@ export default function CameraScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Segment Count */}
       {segments.length > 0 && !isRecording && (
         <View style={styles.segmentBadge}>
           <Text style={styles.segmentBadgeText}>{segments.length} đoạn</Text>
@@ -365,63 +372,60 @@ export default function CameraScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
-  // Permission screens
   permissionContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 40,
   },
   permissionText: {
-    color: '#ccc',
+    color: "#ccc",
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 16,
     marginBottom: 20,
     lineHeight: 24,
   },
   permissionBtn: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 10,
     marginBottom: 12,
   },
   permissionBtnText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   backBtn: {
     paddingVertical: 10,
   },
   backBtnText: {
-    color: '#888',
+    color: "#888",
     fontSize: 14,
   },
-  // Processing overlay
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 100,
   },
   processingText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
     marginTop: 12,
   },
-  // Top bar
   topBar: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 50,
     paddingBottom: 12,
@@ -431,59 +435,57 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   topBtnText: {
     fontSize: 18,
-    color: '#fff',
+    color: "#fff",
   },
-  // Progress bar
   progressContainer: {
     flex: 1,
     marginHorizontal: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   progressTrack: {
-    width: '100%',
+    width: "100%",
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: "rgba(255,255,255,0.3)",
     borderRadius: 2,
-    overflow: 'hidden',
-    position: 'relative',
+    overflow: "hidden",
+    position: "relative",
   },
   progressSegment: {
-    position: 'absolute',
-    height: '100%',
-    backgroundColor: '#FF3B30',
+    position: "absolute",
+    height: "100%",
+    backgroundColor: "#FF3B30",
     borderRightWidth: 1,
-    borderRightColor: '#fff',
+    borderRightColor: "#fff",
   },
   progressCurrent: {
-    position: 'absolute',
-    height: '100%',
-    backgroundColor: '#FF6B6B',
+    position: "absolute",
+    height: "100%",
+    backgroundColor: "#FF6B6B",
   },
   durationText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 11,
     marginTop: 4,
-    fontWeight: '600',
+    fontWeight: "600",
   },
-  // Bottom bar
   bottomBar: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 40,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
     paddingHorizontal: 20,
   },
   sideBtn: {
-    alignItems: 'center',
+    alignItems: "center",
     width: 60,
   },
   sideBtnDisabled: {
@@ -493,57 +495,55 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   sideBtnLabel: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 11,
     marginTop: 4,
   },
-  // Record button
   recordContainer: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   recordBtn: {
     width: 80,
     height: 80,
     borderRadius: 40,
     borderWidth: 4,
-    borderColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 4,
   },
   recordBtnActive: {
-    borderColor: '#FF3B30',
+    borderColor: "#FF3B30",
     transform: [{ scale: 1.1 }],
   },
   recordInner: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 36,
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
   },
   recordInnerActive: {
     borderRadius: 8,
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
   },
   recordHint: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
     marginTop: 8,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-  // Segment badge
   segmentBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 130,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(255, 59, 48, 0.8)',
+    alignSelf: "center",
+    backgroundColor: "rgba(255, 59, 48, 0.8)",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
   segmentBadgeText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

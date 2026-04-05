@@ -28,10 +28,10 @@ def import_shorts(csv_path, user_ids_path, output_sql_path):
         for row in reader:
             try:
                 user_id = random.choice(user_ids)
-                video_url = row.get('video_url', '')[:255].replace("'", "''")
-                thumbnail_url = row.get('thumbnail_url', '')[:255].replace("'", "''")
-                # Slice BEFORE escaping to ensure result value is within 100 chars
-                title = row.get('title', 'Unknown Title')[:100].replace("'", "''")
+                video_url = row.get('video_url', '').replace("'", "''")
+                thumbnail_url = row.get('thumbnail_url', '').replace("'", "''")
+                # Titles can now be long (TEXT type in DB)
+                title = row.get('title', 'Unknown Title').replace("'", "''")
                 
                 keyword = row.get('keyword_source', 'General')
                 description = f"Awesome YouTube Short about {keyword}. Shared on Ptitube.".replace("'", "''")
@@ -45,8 +45,13 @@ def import_shorts(csv_path, user_ids_path, output_sql_path):
                 
                 fmt = row.get('format', 'mp4')[:20].replace("'", "''")
                 status = 'active'
+                category_id = row.get('category_id', '0')
+                try:
+                    category_id = int(category_id)
+                except:
+                    category_id = 0
                 
-                val = f"('{user_id}', '{video_url}', '{thumbnail_url}', '{title}', '{description}', {duration}, '{fmt}', '{status}')"
+                val = f"('{user_id}', '{video_url}', '{thumbnail_url}', '{title}', '{description}', {duration}, '{fmt}', '{status}', {category_id})"
                 current_batch.append(val)
                 total_count += 1
             except Exception as e:
@@ -54,21 +59,23 @@ def import_shorts(csv_path, user_ids_path, output_sql_path):
                 continue
             
             if len(current_batch) >= batch_size:
-                sql = "INSERT INTO videos (user_id, video_url, thumbnail_url, title, description, duration_seconds, format, status) VALUES\n"
+                sql = "INSERT INTO videos (user_id, video_url, thumbnail_url, title, description, duration_seconds, format, status, category_id) VALUES\n"
                 sql += ",\n".join(current_batch) + ";"
                 sql_statements.append(sql)
                 current_batch = []
         
         # Final batch
         if current_batch:
-            sql = "INSERT INTO videos (user_id, video_url, thumbnail_url, title, description, duration_seconds, format, status) VALUES\n"
+            sql = "INSERT INTO videos (user_id, video_url, thumbnail_url, title, description, duration_seconds, format, status, category_id) VALUES\n"
             sql += ",\n".join(current_batch) + ";"
             sql_statements.append(sql)
             
     print(f"Writing {total_count} records to {output_sql_path}...")
     with open(output_sql_path, "w", encoding="utf-8") as f:
-        f.write("-- Seed videos generated from shorts_data.csv\n")
+        f.write("-- Seed videos generated from shorts_data_with_cats.csv\n")
         f.write("BEGIN;\n\n")
+        f.write("-- Clear existing data as requested\n")
+        f.write("TRUNCATE TABLE videos CASCADE;\n\n")
         for stmt in sql_statements:
             f.write(stmt + "\n\n")
         f.write("COMMIT;\n")
@@ -76,4 +83,4 @@ def import_shorts(csv_path, user_ids_path, output_sql_path):
     print(f"Success! Generated {output_sql_path} with {total_count} videos in {len(sql_statements)} batches.")
 
 if __name__ == "__main__":
-    import_shorts("database/shorts_data.csv", "database/user_ids.txt", "database/seed_shorts.sql")
+    import_shorts("database/shorts_data_with_cats.csv", "database/user_ids.txt", "database/seed_shorts.sql")
