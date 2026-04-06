@@ -14,6 +14,7 @@ export interface VideoStats {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  repostCount: number;
 }
 
 export interface VideoUserSummary {
@@ -25,6 +26,8 @@ export interface VideoUserSummary {
 
 export interface VideoItem {
   id: string;
+  feedEntryId?: string;
+  entryType?: 'original' | 'repost';
   videoUrl: string;
   title: string;
   description: string;
@@ -32,10 +35,14 @@ export interface VideoItem {
   durationSeconds?: number;
   score?: number;
   createdAt?: string;
+  activityAt?: string;
+  repostedAt?: string;
   user: VideoUserSummary;
+  repostedBy?: VideoUserSummary;
   stats?: VideoStats;
   hashtags?: string[];
   likedByCurrentUser?: boolean;
+  currentUserHasReposted?: boolean;
 }
 
 export interface CommentItem {
@@ -184,8 +191,10 @@ export const getVideos = async () => {
   return response.data;
 };
 
-export const getVideoDetail = async (videoId: string): Promise<VideoItem> => {
-  const response = await api.get(`/videos/${videoId}`);
+export const getVideoDetail = async (videoId: string, repostedByUserId?: string): Promise<VideoItem> => {
+  const response = await api.get(`/videos/${videoId}`, {
+    params: repostedByUserId ? { repostedByUserId } : undefined,
+  });
   return response.data;
 };
 
@@ -290,6 +299,16 @@ export const shareVideo = async (videoId: string) => {
   return response.data;
 };
 
+export const createRepost = async (videoId: string) => {
+  const response = await api.post(`/social/reposts/${videoId}`);
+  return response.data;
+};
+
+export const removeRepost = async (videoId: string) => {
+  const response = await api.delete(`/social/reposts/${videoId}`);
+  return response.data;
+};
+
 export const reportVideo = async (videoId: string, reason: string) => {
   const response = await api.post('/report', { videoId, reason });
   return response.data;
@@ -321,6 +340,16 @@ export const getMyVideos = async (): Promise<VideoItem[]> => {
 
 export const getUserVideos = async (userId: string): Promise<VideoItem[]> => {
   const response = await api.get(`/users/${userId}/videos`);
+  return response.data;
+};
+
+export const getFollowers = async (userId: string): Promise<UserCard[]> => {
+  const response = await api.get(`/users/${userId}/followers`);
+  return response.data;
+};
+
+export const getFollowing = async (userId: string): Promise<UserCard[]> => {
+  const response = await api.get(`/users/${userId}/following`);
   return response.data;
 };
 

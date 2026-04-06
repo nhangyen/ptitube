@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -8,8 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import ScreenHeader from '@/components/ScreenHeader';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import type { NotificationItem } from '@/services/api';
 import * as api from '@/services/api';
 
@@ -32,26 +34,30 @@ const formatRelativeTime = (value?: string) => {
 };
 
 export default function NotificationsScreen() {
+  const { clearUnreadCount, decrementUnreadCount, refreshUnreadCount } = useNotifications();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       const data = await api.getNotifications(0, 50);
       setNotifications(data);
+      void refreshUnreadCount();
     } catch (error) {
       console.error('Error loading notifications:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [refreshUnreadCount]);
 
-  useEffect(() => {
-    void loadNotifications();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      void loadNotifications();
+    }, [loadNotifications])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -61,10 +67,12 @@ export default function NotificationsScreen() {
   const handleOpenNotification = async (item: NotificationItem) => {
     if (!item.read) {
       setNotifications((current) => current.map((entry) => (entry.id === item.id ? { ...entry, read: true } : entry)));
+      decrementUnreadCount();
       try {
         await api.markNotificationRead(item.id);
       } catch (error) {
         console.error('Error marking notification as read:', error);
+        void refreshUnreadCount();
       }
     }
 
@@ -83,8 +91,10 @@ export default function NotificationsScreen() {
       setMarkingAll(true);
       await api.markAllNotificationsRead();
       setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+      clearUnreadCount();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
+      void refreshUnreadCount();
     } finally {
       setMarkingAll(false);
     }

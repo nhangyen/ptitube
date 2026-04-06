@@ -2,6 +2,7 @@ package com.example.video.repository;
 
 import com.example.video.model.Follow;
 import com.example.video.model.FollowId;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,8 +14,10 @@ import java.util.UUID;
 public interface FollowRepository extends JpaRepository<Follow, FollowId> {
     boolean existsByFollowerIdAndFollowingId(UUID followerId, UUID followingId);
     void deleteByFollowerIdAndFollowingId(UUID followerId, UUID followingId);
-    List<Follow> findByFollowerId(UUID followerId);
-    List<Follow> findByFollowingId(UUID followingId);
+    @EntityGraph(attributePaths = "following")
+    List<Follow> findByFollowerIdOrderByCreatedAtDesc(UUID followerId);
+    @EntityGraph(attributePaths = "follower")
+    List<Follow> findByFollowingIdOrderByCreatedAtDesc(UUID followingId);
     long countByFollowerId(UUID followerId); // Following count
     long countByFollowingId(UUID followingId); // Followers count
 

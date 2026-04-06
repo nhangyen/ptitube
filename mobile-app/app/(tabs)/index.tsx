@@ -9,17 +9,19 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import CommentSection from '@/components/CommentSection';
 import HashtagChips from '@/components/HashtagChips';
 import SocialActions from '@/components/SocialActions';
 import { API_BASE_URL } from '@/constants/Config';
+import { useAuth } from '@/contexts/AuthContext';
 import type { VideoItem, VideoStats } from '@/services/api';
 import * as api from '@/services/api';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 
 const { height, width } = Dimensions.get('window');
 
@@ -28,6 +30,7 @@ const DEFAULT_STATS: VideoStats = {
   likeCount: 0,
   commentCount: 0,
   shareCount: 0,
+  repostCount: 0,
 };
 const ACTIVE_VIDEO_WINDOW = 1;
 
@@ -39,6 +42,8 @@ const resolveVideoUri = (item: VideoItem) => {
 };
 
 export default function FeedScreen() {
+  const isFocused = useIsFocused();
+  const { user: currentUser } = useAuth();
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -79,6 +84,18 @@ export default function FeedScreen() {
       videoRefs.current = {};
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        Object.values(videoRefs.current).forEach((ref) => {
+          if (ref) {
+            void ref.pauseAsync().catch(() => undefined);
+          }
+        });
+      };
+    }, [])
+  );
 
   const fetchVideos = async (pageNum: number, refresh = false) => {
     if (refresh) setLoading(true);
@@ -199,9 +216,60 @@ export default function FeedScreen() {
     );
   };
 
+  const handleCommentCountChange = (videoId: string, count: number) => {
+    updateVideo(videoId, (video) => ({
+      ...video,
+      stats: {
+        ...(video.stats || DEFAULT_STATS),
+        commentCount: count,
+      },
+    }));
+  };
+
+  const handleRepostChange = (videoId: string, reposted: boolean) => {
+    updateVideo(videoId, (video) => {
+      const nextStats = {
+        ...(video.stats || DEFAULT_STATS),
+        repostCount: Math.max(0, (video.stats?.repostCount || 0) + (reposted ? 1 : -1)),
+      };
+      const isOwnRepostEntry = video.entryType === 'repost' && video.repostedBy?.id === currentUser?.id;
+      const now = new Date().toISOString();
+
+      if (reposted && currentUser) {
+        return {
+          ...video,
+          feedEntryId: isOwnRepostEntry ? video.feedEntryId : `repost:pending:${video.id}`,
+          entryType: 'repost',
+          activityAt: now,
+          repostedAt: now,
+          repostedBy: {
+            id: currentUser.id,
+            username: currentUser.username,
+            avatarUrl: currentUser.avatarUrl,
+            followedByCurrentUser: false,
+          },
+          currentUserHasReposted: true,
+          stats: nextStats,
+        };
+      }
+
+      return {
+        ...video,
+        feedEntryId: isOwnRepostEntry ? `video:${video.id}` : video.feedEntryId,
+        entryType: isOwnRepostEntry ? 'original' : video.entryType,
+        activityAt: isOwnRepostEntry ? (video.createdAt || video.activityAt) : video.activityAt,
+        repostedAt: isOwnRepostEntry ? undefined : video.repostedAt,
+        repostedBy: isOwnRepostEntry ? undefined : video.repostedBy,
+        currentUserHasReposted: false,
+        stats: nextStats,
+      };
+    });
+  };
+
   const renderItem = ({ item, index }: { item: VideoItem; index: number }) => {
     const isCurrentVideo = index === currentVideoIndex;
     const shouldMountVideo = Math.abs(index - currentVideoIndex) <= ACTIVE_VIDEO_WINDOW;
+    const canPlay = isFocused && isCurrentVideo && !isPaused;
 
     return (
 
@@ -217,12 +285,12 @@ export default function FeedScreen() {
               style={styles.video}
               resizeMode={ResizeMode.COVER}
               isLooping
-              shouldPlay={isCurrentVideo && !isPaused}
+              shouldPlay={canPlay}
               isMuted={isMuted}
               useNativeControls={false}
               onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
                 if (status.isLoaded && status.didJustFinish) {
-                  currentVideoFinishedRef.current = true;
+                  return;
                 }
               }}
             />
@@ -230,7 +298,6 @@ export default function FeedScreen() {
             <View style={styles.videoPlaceholder} />
           )}
 
-          {/* Gradient Overlay for bottom text readability, fading to deep obsidian */}
           <LinearGradient
             colors={['transparent', 'rgba(35, 2, 15, 0.4)', 'rgba(35, 2, 15, 0.8)', '#23020f']}
             locations={[0, 0.5, 0.8, 1]}
@@ -240,6 +307,12 @@ export default function FeedScreen() {
           />
 
           <View style={styles.contentOverlay}>
+            {item.entryType === 'repost' && item.repostedBy ? (
+              <View style={styles.repostBadge}>
+                <Ionicons name="repeat" size={12} color="#23020f" />
+                <Text style={styles.repostBadgeText}>@{item.repostedBy.username} reposted</Text>
+              </View>
+            ) : null}
             <TouchableOpacity onPress={() => router.push(`/profile/${item.user.id}` as never)}>
               <Text style={styles.usernameText} numberOfLines={1}>@{item.user?.username || 'user'}</Text>
             </TouchableOpacity>
@@ -251,7 +324,6 @@ export default function FeedScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Top Controls Glassmorphism */}
         <BlurView intensity={70} tint="dark" style={styles.topControlMuteContainer}>
           <TouchableOpacity style={styles.controlButtonList} onPress={toggleMute}>
             <Ionicons name={isMuted ? 'volume-mute' : 'volume-medium'} size={20} color="#fff" />
@@ -273,8 +345,10 @@ export default function FeedScreen() {
           stats={item.stats || DEFAULT_STATS}
           isLiked={Boolean(item.likedByCurrentUser)}
           isFollowing={Boolean(item.user?.followedByCurrentUser)}
+          isReposted={Boolean(item.currentUserHasReposted)}
           onLikeChange={(liked) => handleLikeChange(item.id, liked)}
           onFollowChange={(following) => handleFollowChange(item.user?.id || '', following)}
+          onRepostChange={(reposted) => handleRepostChange(item.id, reposted)}
           onCommentPress={() => {
             setSelectedVideoId(item.id);
             setShowComments(true);
@@ -305,26 +379,26 @@ export default function FeedScreen() {
   }
 
   return (
-    <View 
-      style={styles.mainContainer} 
+    <View
+      style={styles.mainContainer}
       onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
     >
       <FlatList
         data={videos}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.feedEntryId || item.id}
         renderItem={renderItem}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={handleViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        refreshControl={
+        refreshControl={(
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
             tintColor="#ff8c95"
             colors={['#ff8c95']}
           />
-        }
+        )}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         getItemLayout={(data, index) => ({ length: containerHeight, offset: containerHeight * index, index })}
@@ -338,6 +412,7 @@ export default function FeedScreen() {
           videoId={selectedVideoId}
           visible={showComments}
           onClose={() => setShowComments(false)}
+          onCommentsCountChange={(count) => handleCommentCountChange(selectedVideoId, count)}
         />
       )}
     </View>
@@ -347,7 +422,7 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    backgroundColor: '#23020f', // Base surface
+    backgroundColor: '#23020f',
   },
   loaderCenter: {
     flex: 1,
@@ -358,26 +433,24 @@ const styles = StyleSheet.create({
   infoCenterText: {
     color: '#e8e8e8',
     fontSize: 16,
-    
-    marginBottom: 24, // spacing-6 (1.5rem)
+    marginBottom: 24,
   },
   refreshControlBtn: {
-    height: 48, // 3rem tap target
+    height: 48,
     paddingHorizontal: 24,
     borderRadius: 48,
-    backgroundColor: '#ff8c95', // Primary
+    backgroundColor: '#ff8c95',
     justifyContent: 'center',
     alignItems: 'center',
   },
   refreshControlText: {
-    color: '#64001a', // On-primary
-    
+    color: '#64001a',
     fontWeight: '700',
     fontSize: 16,
   },
   videoCard: {
-    width: width,
-    height: height,
+    width,
+    height,
     backgroundColor: '#23020f',
     position: 'relative',
   },
@@ -390,7 +463,7 @@ const styles = StyleSheet.create({
   },
   videoPlaceholder: {
     flex: 1,
-    backgroundColor: '#2b0414', // surface-container-low
+    backgroundColor: '#2b0414',
   },
   bottomGradient: {
     position: 'absolute',
@@ -405,17 +478,13 @@ const styles = StyleSheet.create({
     right: 24,
     borderRadius: 48,
     overflow: 'hidden',
-    backgroundColor: 'rgba(74, 17, 41, 0.7)', // surface-container-highest at 70%
+    backgroundColor: 'rgba(74, 17, 41, 0.7)',
   },
   controlButtonList: {
-    height: 48, // 3rem minimum
+    height: 48,
     width: 48,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  controlIconList: {
-    fontSize: 20,
-    color: '#fff',
   },
   pauseIndicatorContainer: {
     position: 'absolute',
@@ -430,23 +499,33 @@ const styles = StyleSheet.create({
     height: 84,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(62, 13, 33, 0.7)', // surface-container-high at 70%
-  },
-  pauseIconStyle: {
-    color: '#ff8c95', // Primary
-    fontSize: 34,
-    marginLeft: 6,
+    backgroundColor: 'rgba(62, 13, 33, 0.7)',
   },
   contentOverlay: {
     position: 'absolute',
     left: 24,
     right: 84,
-    bottom: 30, // offset
-     // whitespace grouping
+    bottom: 30,
+  },
+  repostBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#f3ffca',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  repostBadgeText: {
+    color: '#23020f',
+    fontSize: 11,
+    fontWeight: '800',
   },
   usernameText: {
     color: '#fff',
-    fontSize: 24, // headline-sm (1.5rem)
+    fontSize: 24,
     fontWeight: '800',
     marginBottom: 8,
   },
@@ -454,7 +533,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     marginBottom: 8,
-    fontSize: 14, // body-md (0.875rem)
+    fontSize: 14,
     lineHeight: 22,
   },
   descriptionText: {

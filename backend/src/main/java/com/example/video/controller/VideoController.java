@@ -54,8 +54,13 @@ public class VideoController {
     @GetMapping("/{videoId}")
     public ResponseEntity<VideoFeedItem> getVideoDetail(
             @PathVariable UUID videoId,
+            @RequestParam(required = false) UUID repostedByUserId,
             Authentication authentication) {
-        return ResponseEntity.ok(discoverService.getVideoDetail(videoId, getCurrentUserId(authentication)));
+        return ResponseEntity.ok(discoverService.getVideoDetail(
+                videoId,
+                getCurrentUserId(authentication),
+                repostedByUserId
+        ));
     }
 
     @GetMapping(value = "/stream/{videoId}")
