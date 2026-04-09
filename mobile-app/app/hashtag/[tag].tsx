@@ -1,17 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import ScreenHeader from '@/components/ScreenHeader';
-import VideoGrid from '@/components/VideoGrid';
-import type { HashtagDetail } from '@/services/api';
-import * as api from '@/services/api';
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import ScreenHeader from "@/components/ScreenHeader";
+import VideoGrid from "@/components/VideoGrid";
+import type { HashtagDetail } from "@/services/api";
+import * as api from "@/services/api";
+import { Hash } from "lucide-react-native";
 
 export default function HashtagScreen() {
   const params = useLocalSearchParams<{ tag: string }>();
@@ -19,14 +13,14 @@ export default function HashtagScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const tag = params.tag || '';
+  const tag = params.tag || "";
 
   const loadDetail = useCallback(async () => {
     try {
       const response = await api.getHashtagDetail(tag, 0, 24);
       setDetail(response);
     } catch (error) {
-      console.error('Error loading hashtag detail:', error);
+      console.error("Error loading hashtag detail:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -44,80 +38,46 @@ export default function HashtagScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF3B30" />
+      <View className="flex-1 bg-surface items-center justify-center">
+        <ActivityIndicator size="large" color="#ff8c95" />
       </View>
     );
   }
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF3B30" />}
+      className="flex-1 bg-surface"
+      contentContainerStyle={{ paddingBottom: 120 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff8c95" />}
     >
       <ScreenHeader
         title={detail?.hashtag.displayName || `#${tag}`}
-        subtitle="Videos collected from the hashtag system."
+        subtitle="Network link sequence"
         onBack={() => router.back()}
+        
       />
 
-      <View style={styles.heroCard}>
-        <Text style={styles.heroCount}>{detail?.hashtag.videoCount || 0}</Text>
-        <Text style={styles.heroLabel}>videos tagged with {detail?.hashtag.displayName || `#${tag}`}</Text>
+      <View className="px-6 py-6">
+        <View className="bg-surface-container-low rounded-[32px] p-8 items-center justify-center mb-10 shadow-2xl relative border border-outline-variant/15">
+          <View className="w-20 h-20 rounded-full bg-surface-container-highest border border-secondary/20 items-center justify-center mb-6 shadow-[0_0_40px_rgba(41,252,243,0.3)]">
+            <Hash size={40} color="#29fcf3" />
+          </View>
+          <Text className="text-secondary font-display text-5xl font-bold mb-2">
+            {detail?.hashtag.videoCount || 0}
+          </Text>
+          <Text className="text-gray-400 font-label tracking-widest text-sm uppercase">Total Logs Indexed</Text>
+        </View>
+
+        <Text className="text-primary font-headline text-xl mb-4 ml-1">Grid Activity</Text>
+        <View className="bg-surface border-t border-surface-container-highest min-h-[400px] pt-4">
+          <VideoGrid
+            videos={detail?.videos || []}
+            onVideoPress={(video) => router.push(`/video/${video.id}` as never)}
+            emptyTitle="Signal Lost"
+            emptySubtitle="No video records attached to this node."
+          />
+        </View>
       </View>
-
-      <Text style={styles.sectionTitle}>Video grid</Text>
-      <VideoGrid
-        videos={detail?.videos || []}
-        onVideoPress={(video) => router.push(`/video/${video.id}` as never)}
-        emptyTitle="No videos in this hashtag"
-        emptySubtitle="Try another hashtag or add this hashtag to a new upload."
-      />
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#070707',
-  },
-  content: {
-    padding: 20,
-    paddingTop: 56,
-    paddingBottom: 120,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#070707',
-  },
-  heroCard: {
-    marginTop: 18,
-    borderRadius: 28,
-    padding: 22,
-    backgroundColor: '#101010',
-    borderWidth: 1,
-    borderColor: '#242424',
-  },
-  heroCount: {
-    color: '#fff',
-    fontSize: 42,
-    fontWeight: '800',
-  },
-  heroLabel: {
-    color: '#a0a0a0',
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 28,
-    marginBottom: 14,
-  },
-});

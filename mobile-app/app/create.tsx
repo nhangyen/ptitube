@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 /**
  * Create Screen — Chọn nguồn video
  *
@@ -12,7 +13,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';

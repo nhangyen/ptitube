@@ -4,6 +4,6 @@
 // - localhost: Chỉ hoạt động trên web
 
 
-const HOST_IP = "192.168.137.1"; // Thay bằng IP của bạn nếu khác
+const HOST_IP = "192.168.1.120"; // Thay bằng IP của bạn nếu khác
 export const API_BASE_URL = `http://${HOST_IP}:8080/api`;
 export const API_TIMEOUT = 15000; // 15 seconds timeout

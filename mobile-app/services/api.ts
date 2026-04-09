@@ -416,14 +416,14 @@ export const getCreatorDashboard = async (): Promise<DashboardData> => {
 };
 
 export const getDiscover = async (): Promise<DiscoverData> => {
-  try {
-    const response = await api.get('/discover');
-    return normalizeDiscoverData(response.data);
-  } catch {
-    return normalizeDiscoverData(null);
-  }
-};
-
+    try {
+      const response = await api.get('/discover');
+      return normalizeDiscoverData(response.data);
+    } catch (error) {
+      console.error('getDiscover error:', error);
+      return normalizeDiscoverData(null);
+    }
+  };
 export const searchDiscover = async (query: string, page: number = 0, size: number = 12): Promise<SearchResults> => {
   try {
     const response = await api.get('/discover/search', {

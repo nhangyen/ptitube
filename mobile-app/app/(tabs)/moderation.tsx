@@ -1,17 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  RefreshControl,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import * as api from '@/services/api';
 import ModerationVideoDetail from '@/components/ModerationVideoDetail';
+import { Shield, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react-native';
+import { router } from 'expo-router';
 
 const STATUS_FILTERS = ['pending', 'in_review', 'reviewed'];
 
@@ -75,9 +68,12 @@ export default function ModerationScreen() {
 
   if (!isModerator) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.accessDenied}>Access Denied</Text>
-        <Text style={styles.subtitle}>Only moderators and admins can access this screen.</Text>
+      <View className="flex-1 bg-surface items-center justify-center p-6">
+        <Shield size={64} color="#e80048" className="mb-6 opacity-80" />
+        <Text className="text-3xl font-display font-bold text-primary mb-2">Access Denied</Text>
+        <Text className="text-base font-body text-gray-400 text-center">
+          Only authorized personnel can access the neon moderation terminal.
+        </Text>
       </View>
     );
   }
@@ -92,34 +88,79 @@ export default function ModerationScreen() {
     );
   }
 
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-primary-dim text-on-primary';
+      case 'high': return 'bg-[#d97706] text-white';
+      case 'normal': return 'bg-secondary/20 text-secondary';
+      default: return 'bg-surface-container-highest text-gray-300';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return <Clock size={14} color="#ff8c95" className="mr-1" />;
+      case 'in_review': return <AlertTriangle size={14} color="#f3ffca" className="mr-1" />;
+      case 'reviewed': return <CheckCircle2 size={14} color="#29fcf3" className="mr-1" />;
+      default: return null;
+    }
+  };
+
   const renderItem = ({ item }: { item: QueueItem }) => (
-    <TouchableOpacity style={styles.card} onPress={() => setSelectedItem(item)}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.videoTitle} numberOfLines={1}>{item.videoTitle}</Text>
-        <View style={[styles.priorityBadge, priorityColor(item.priority)]}>
-          <Text style={styles.priorityText}>{item.priority}</Text>
+    <TouchableOpacity 
+      className="bg-surface-container-low mb-4 rounded-3xl p-5 overflow-hidden" 
+      onPress={() => setSelectedItem(item)}
+      activeOpacity={0.7}
+    >
+      <View className="flex-row justify-between items-start mb-3">
+        <Text className="text-lg font-headline font-semibold text-white flex-1 mr-3" numberOfLines={1}>
+          {item.videoTitle || 'Untitled Sequence'}
+        </Text>
+        <View className={`px-3 py-1 rounded-full ${getPriorityColor(item.priority.toLowerCase())}`}>
+          <Text className="text-[10px] font-label font-bold uppercase tracking-wider">
+            {item.priority}
+          </Text>
         </View>
       </View>
-      <Text style={styles.uploader}>by @{item.uploaderUsername}</Text>
-      <View style={styles.cardFooter}>
-        <Text style={styles.meta}>{item.sceneCount} scenes</Text>
-        <Text style={styles.meta}>AI: {item.aiJobStatus || 'N/A'}</Text>
-        {item.assignedTo && <Text style={styles.meta}>Assigned: {item.assignedTo}</Text>}
+      
+      <Text className="text-sm font-body text-gray-400 mb-4">
+        by <Text className="text-secondary">@{item.uploaderUsername}</Text>
+      </Text>
+      
+      <View className="flex-row items-center flex-wrap gap-y-2">
+        <View className="bg-surface-container-high px-3 py-1.5 rounded-xl mr-2">
+          <Text className="text-xs font-label text-gray-300">{item.sceneCount} scenes</Text>
+        </View>
+        <View className="bg-surface-container-highest px-3 py-1.5 rounded-xl mr-2 flex-row items-center">
+          {getStatusIcon(activeFilter)}
+          <Text className="text-xs font-label text-gray-300">AI: {item.aiJobStatus || 'N/A'}</Text>
+        </View>
+        {item.assignedTo && (
+          <View className="bg-surface-container-high px-3 py-1.5 rounded-xl flex-row items-center border border-outline-variant/30">
+            <Text className="text-xs font-label text-primary-fixed-dim">Assigned</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Moderation Queue</Text>
+    <View className="flex-1 bg-surface pt-16 px-4">
+      <View className="flex-row items-center justify-between mb-6">
+        <View>
+          <Text className="text-3xl font-display font-bold text-white tracking-widest">MODERATION</Text>
+          <Text className="text-sm font-label text-secondary mt-1 tracking-widest uppercase">System Terminal</Text>
+        </View>
+        <Shield size={32} color="#ff8c95" />
+      </View>
 
-      <View style={styles.filterRow}>
+      <View className="flex-row mb-6 bg-surface-container-low p-1 rounded-full">
         {STATUS_FILTERS.map((status) => (
           <TouchableOpacity
             key={status}
-            style={[styles.filterTab, activeFilter === status && styles.filterTabActive]}
+            className={`flex-1 py-3 items-center rounded-full ${activeFilter === status ? 'bg-surface-container-highest shadow-sm' : 'bg-transparent'}`}
             onPress={() => setActiveFilter(status)}>
-            <Text style={[styles.filterText, activeFilter === status && styles.filterTextActive]}>
+            <Text className={`text-xs font-label uppercase tracking-widest ${activeFilter === status ? 'text-primary font-bold' : 'text-gray-500'}`}>
               {status.replace('_', ' ')}
             </Text>
           </TouchableOpacity>
@@ -127,50 +168,25 @@ export default function ModerationScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#fff" style={{ marginTop: 40 }} />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#ff8c95" />
+        </View>
       ) : (
         <FlatList
           data={items}
           keyExtractor={(item) => item.queueId}
           renderItem={renderItem}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff8c95" />}
           ListEmptyComponent={
-            <Text style={styles.empty}>No items in queue</Text>
+            <View className="items-center justify-center py-12">
+              <CheckCircle2 size={48} color="#29fcf3" className="opacity-40 mb-4" />
+              <Text className="text-gray-400 font-label text-center">Queue is clear.</Text>
+            </View>
           }
           contentContainerStyle={{ paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
   );
 }
-
-const priorityColor = (priority: string) => {
-  switch (priority) {
-    case 'urgent': return { backgroundColor: '#e74c3c' };
-    case 'high': return { backgroundColor: '#e67e22' };
-    case 'normal': return { backgroundColor: '#3498db' };
-    default: return { backgroundColor: '#95a5a6' };
-  }
-};
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', paddingTop: 60, paddingHorizontal: 16 },
-  center: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-  header: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
-  accessDenied: { color: '#e74c3c', fontSize: 20, fontWeight: 'bold' },
-  subtitle: { color: '#888', fontSize: 14, marginTop: 8 },
-  filterRow: { flexDirection: 'row', marginBottom: 16, gap: 8 },
-  filterTab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#222' },
-  filterTabActive: { backgroundColor: '#3498db' },
-  filterText: { color: '#888', fontSize: 12, textTransform: 'capitalize' },
-  filterTextActive: { color: '#fff' },
-  card: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16, marginBottom: 12 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  videoTitle: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1, marginRight: 8 },
-  priorityBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  priorityText: { color: '#fff', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
-  uploader: { color: '#888', fontSize: 13, marginTop: 4 },
-  cardFooter: { flexDirection: 'row', marginTop: 10, gap: 12 },
-  meta: { color: '#666', fontSize: 12 },
-  empty: { color: '#666', textAlign: 'center', marginTop: 40 },
-});

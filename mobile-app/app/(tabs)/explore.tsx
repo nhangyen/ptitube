@@ -1,16 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
 import { router } from 'expo-router';
+import { Search } from 'lucide-react-native';
 import HashtagChips from '@/components/HashtagChips';
 import VideoGrid from '@/components/VideoGrid';
 import type { DiscoverData, SearchResults, UserCard, VideoItem } from '@/services/api';
@@ -19,19 +11,19 @@ import * as api from '@/services/api';
 function CreatorCard({ creator }: { creator: UserCard }) {
   return (
     <TouchableOpacity
-      style={styles.creatorCard}
+      className="flex-row p-4 rounded-3xl bg-surface-container-low mb-3 items-center"
       onPress={() => router.push(`/profile/${creator.id}` as never)}
       activeOpacity={0.85}
     >
-      <View style={styles.creatorAvatar}>
-        <Text style={styles.creatorAvatarText}>{creator.username.slice(0, 1).toUpperCase()}</Text>
+      <View className="w-14 h-14 rounded-full bg-primary-dim items-center justify-center">
+        <Text className="text-on-primary font-display text-2xl">{creator.username.slice(0, 1).toUpperCase()}</Text>
       </View>
-      <View style={styles.creatorMeta}>
-        <Text style={styles.creatorName}>@{creator.username}</Text>
-        <Text style={styles.creatorBio} numberOfLines={2}>
+      <View className="flex-1 ml-4 justify-center">
+        <Text className="text-white font-display text-base">@{creator.username}</Text>
+        <Text className="text-gray-400 font-body text-sm mt-0.5" numberOfLines={2}>
           {creator.bio || 'Creator profile'}
         </Text>
-        <Text style={styles.creatorStats}>
+        <Text className="text-white/60 font-label text-xs mt-1">
           {creator.followerCount} followers · {creator.videoCount} videos
         </Text>
       </View>
@@ -42,28 +34,28 @@ function CreatorCard({ creator }: { creator: UserCard }) {
 function VideoRowCard({ video }: { video: VideoItem }) {
   return (
     <TouchableOpacity
-      style={styles.videoRow}
+      className="flex-row p-4 rounded-3xl bg-surface-container-low mb-3"
       onPress={() => router.push(`/video/${video.id}` as never)}
       activeOpacity={0.85}
     >
-      <View style={styles.videoRowPreview}>
+      <View className="w-[86px] h-24 rounded-2xl bg-surface-container-high overflow-hidden">
         {video.thumbnailUrl ? (
           <Image
             source={{ uri: video.thumbnailUrl }}
-            style={styles.videoRowThumbnail}
+            style={{ width: '100%', height: '100%' }}
             contentFit="cover"
             transition={150}
           />
         ) : null}
       </View>
-      <View style={styles.videoRowMeta}>
-        <Text style={styles.videoRowTitle} numberOfLines={1}>
+      <View className="flex-1 ml-4 justify-center">
+        <Text className="text-white font-headline text-base" numberOfLines={1}>
           {video.title}
         </Text>
-        <Text style={styles.videoRowDescription} numberOfLines={2}>
+        <Text className="text-gray-400 font-body text-sm mt-1" numberOfLines={2}>
           {video.description || 'No description yet.'}
         </Text>
-        <Text style={styles.videoRowOwner}>@{video.user.username}</Text>
+        <Text className="text-primary/80 font-label text-xs mt-2">@{video.user.username}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -101,10 +93,16 @@ export default function DiscoverScreen() {
 
   const loadDiscover = async () => {
     setLoading(true);
-    const data = await api.getDiscover();
-    setDiscoverData(data);
-    setLoading(false);
-    setRefreshing(false);
+    try {
+      const data = await api.getDiscover();
+      console.log('Discover fetched:', data.suggestedCreators?.length, data.featuredVideos?.length);
+      setDiscoverData(data);
+    } catch (error) {
+      console.error('Error loading discover:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   const onRefresh = () => {
@@ -116,31 +114,32 @@ export default function DiscoverScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF3B30" />
+      <View className="flex-1 bg-surface items-center justify-center">
+        <ActivityIndicator size="large" color="#ff8c95" />
       </View>
     );
   }
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF3B30" />}
+      className="flex-1 bg-surface"
+      contentContainerClassName="p-5 pt-14 pb-32"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff8c95" />}
     >
-      <View style={styles.heroCard}>
-        <Text style={styles.eyebrow}>DISCOVER</Text>
-        <Text style={styles.heroTitle}>Search videos, creators, and hashtags.</Text>
-        <Text style={styles.heroSubtitle}>
+      <View className="bg-surface-container-high rounded-[28px] p-6 mb-6">
+        <Text className="text-primary font-display text-xs tracking-widest uppercase mb-2">DISCOVER</Text>
+        <Text className="text-white font-display text-3xl leading-9">Search videos, creators, and hashtags.</Text>
+        <Text className="text-gray-400 font-body text-base mt-3 leading-snug">
           The search API now uses backend discover endpoints and hashtag-aware results.
         </Text>
       </View>
 
-      <View style={styles.searchBox}>
+      <View className="flex-row items-center bg-surface-container-low rounded-2xl px-4 py-2 mb-8">
+        <Search size={20} color="#ff8c95" className="mr-2" />
         <TextInput
-          style={styles.searchInput}
+          className="flex-1 text-white font-body text-base py-3"
           placeholder="Search by title, creator, or #hashtag"
-          placeholderTextColor="#7a7a7a"
+          placeholderTextColor="#a1a1aa"
           value={query}
           onChangeText={setQuery}
           autoCapitalize="none"
@@ -148,50 +147,50 @@ export default function DiscoverScreen() {
         />
       </View>
 
-      {searching ? <ActivityIndicator color="#FF3B30" style={styles.searchLoader} /> : null}
+      {searching && <ActivityIndicator color="#ff8c95" className="mb-6" />}
 
       {activeResults ? (
         <>
-          <Text style={styles.sectionTitle}>Videos</Text>
+          <Text className="text-white font-display text-xl mb-4">Videos</Text>
           {activeResults.videos.length ? (
             activeResults.videos.map((video) => <VideoRowCard key={video.id} video={video} />)
           ) : (
-            <Text style={styles.emptyText}>No matching videos.</Text>
+            <Text className="text-gray-500 font-body mb-6">No matching videos.</Text>
           )}
 
-          <Text style={styles.sectionTitle}>Creators</Text>
+          <Text className="text-white font-display text-xl mt-6 mb-4">Creators</Text>
           {activeResults.users.length ? (
             activeResults.users.map((creator) => <CreatorCard key={creator.id} creator={creator} />)
           ) : (
-            <Text style={styles.emptyText}>No matching creators.</Text>
+            <Text className="text-gray-500 font-body mb-6">No matching creators.</Text>
           )}
 
-          <Text style={styles.sectionTitle}>Hashtags</Text>
+          <Text className="text-white font-display text-xl mt-6 mb-4">Hashtags</Text>
           {activeResults.hashtags.length ? (
             <HashtagChips
               hashtags={activeResults.hashtags.map((item) => item.name)}
               onPress={(tag) => router.push(`/hashtag/${encodeURIComponent(tag)}` as never)}
             />
           ) : (
-            <Text style={styles.emptyText}>No matching hashtags.</Text>
+            <Text className="text-gray-500 font-body mb-6">No matching hashtags.</Text>
           )}
         </>
       ) : (
         <>
-          <Text style={styles.sectionTitle}>Trending hashtags</Text>
+          <Text className="text-white font-display text-xl mb-4">Trending hashtags</Text>
           <HashtagChips
-            hashtags={discoverData?.trendingHashtags.map((item) => item.name)}
+            hashtags={discoverData?.trendingHashtags.map((item) => item.name) || []}
             onPress={(tag) => router.push(`/hashtag/${encodeURIComponent(tag)}` as never)}
           />
 
-          <Text style={styles.sectionTitle}>Suggested creators</Text>
+          <Text className="text-white font-display text-xl mt-8 mb-4">Suggested creators</Text>
           {discoverData?.suggestedCreators.length ? (
             discoverData.suggestedCreators.map((creator) => <CreatorCard key={creator.id} creator={creator} />)
           ) : (
-            <Text style={styles.emptyText}>No creators available yet.</Text>
+            <Text className="text-gray-500 font-body mb-6">No creators available yet.</Text>
           )}
 
-          <Text style={styles.sectionTitle}>Featured videos</Text>
+          <Text className="text-white font-display text-xl mt-8 mb-4">Featured videos</Text>
           <VideoGrid
             videos={discoverData?.featuredVideos || []}
             onVideoPress={(video) => router.push(`/video/${video.id}` as never)}
@@ -203,157 +202,3 @@ export default function DiscoverScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#070707',
-  },
-  content: {
-    padding: 20,
-    paddingTop: 56,
-    paddingBottom: 120,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#070707',
-  },
-  heroCard: {
-    borderRadius: 28,
-    padding: 20,
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#242424',
-  },
-  eyebrow: {
-    color: '#ff8f87',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-  },
-  heroTitle: {
-    color: '#fff',
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '800',
-    marginTop: 12,
-  },
-  heroSubtitle: {
-    color: '#999',
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 12,
-  },
-  searchBox: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: '#262626',
-    marginTop: 18,
-  },
-  searchInput: {
-    color: '#fff',
-    fontSize: 16,
-    paddingVertical: 12,
-  },
-  searchLoader: {
-    marginTop: 16,
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 28,
-    marginBottom: 14,
-  },
-  creatorCard: {
-    flexDirection: 'row',
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#242424',
-    marginBottom: 12,
-  },
-  creatorAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FF3B30',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  creatorAvatarText: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  creatorMeta: {
-    flex: 1,
-    marginLeft: 14,
-    gap: 4,
-  },
-  creatorName: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  creatorBio: {
-    color: '#949494',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  creatorStats: {
-    color: '#c8c8c8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  videoRow: {
-    flexDirection: 'row',
-    padding: 14,
-    borderRadius: 20,
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#242424',
-    marginBottom: 12,
-  },
-  videoRowPreview: {
-    width: 86,
-    borderRadius: 14,
-    backgroundColor: '#262626',
-    overflow: 'hidden',
-  },
-  videoRowThumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  videoRowMeta: {
-    flex: 1,
-    marginLeft: 14,
-    gap: 6,
-  },
-  videoRowTitle: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  videoRowDescription: {
-    color: '#8f8f8f',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  videoRowOwner: {
-    color: '#ffd5d1',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  emptyText: {
-    color: '#8d8d8d',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-});
