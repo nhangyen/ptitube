@@ -5,11 +5,14 @@ import com.example.video.dto.AiPredictionResponse;
 import com.example.video.dto.VideoFeedItem;
 import com.example.video.model.*;
 import com.example.video.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -28,6 +31,8 @@ import java.util.stream.Stream;
  */
 @Service
 public class RecommendationService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RecommendationService.class);
 
     @Autowired
     private VideoRepository videoRepository;
@@ -56,7 +61,7 @@ public class RecommendationService {
     @Value("${ai.server.url:http://192.168.1.23:8000}")
     private String aiServerUrl;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = createRestTemplate();
 
     private static final int CANDIDATE_POOL_SIZE = 60;
     private static final int MIN_FOLLOWED_VIDEOS = 2;
@@ -87,7 +92,12 @@ public class RecommendationService {
         }
 
         // Existing user → AI-powered feed
-        return getAiPoweredFeed(user, safeSize);
+        try {
+            return getAiPoweredFeed(user, safeSize);
+        } catch (Exception exception) {
+            logger.warn("Falling back to recent videos for user {} because AI recommendation failed", currentUserId, exception);
+            return toFeedItems(getRecentActiveVideos(safeSize), currentUserId);
+        }
     }
 
     // ==================== PATH A: NEW USER / RANDOM ====================
@@ -276,6 +286,13 @@ public class RecommendationService {
         HttpEntity<AiPredictionRequest> entity = new HttpEntity<>(request, headers);
 
         return restTemplate.postForObject(url, entity, AiPredictionResponse.class);
+    }
+
+    private RestTemplate createRestTemplate() {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(2000);
+        requestFactory.setReadTimeout(4000);
+        return new RestTemplate(requestFactory);
     }
 
     private List<Video> applySorting(List<Video> candidates, AiPredictionResponse response) {
@@ -532,7 +549,7 @@ public class RecommendationService {
         item.setEntryType(candidate.isRepost() ? "repost" : "original");
         item.setTitle(video.getTitle());
         item.setDescription(video.getDescription());
-        item.setVideoUrl(video.getVideoUrl());
+        item.setVideoUrl(video.getStreamUrl());
         item.setThumbnailUrl(video.getThumbnailUrl());
         item.setDurationSeconds(video.getDurationSeconds());
         item.setCreatedAt(video.getCreatedAt().toString());

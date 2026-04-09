@@ -4,14 +4,13 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import Slider from '@react-native-community/slider';
-
-const { width, height } = Dimensions.get('window');
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface VideoTrimmerProps {
   videoUri: string;
@@ -26,6 +25,7 @@ export default function VideoTrimmer({
   onCancel,
   maxDuration = 60,
 }: VideoTrimmerProps) {
+  const { width, height } = useWindowDimensions();
   const videoRef = useRef<Video>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [duration, setDuration] = useState(0);
@@ -103,9 +103,11 @@ export default function VideoTrimmer({
     onTrimComplete(startTime, endTime);
   };
 
+  const previewHeight = Math.min(height * 0.48, width * 1.15);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={[styles.header, { paddingTop: 12 }]}>
         <TouchableOpacity onPress={onCancel}>
           <Text style={styles.headerButton}>Cancel</Text>
         </TouchableOpacity>
@@ -117,7 +119,7 @@ export default function VideoTrimmer({
         </TouchableOpacity>
       </View>
 
-      <View style={styles.videoContainer}>
+      <View style={[styles.videoContainer, { maxHeight: previewHeight }]}>
         {isLoading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#FF3B30" />
@@ -126,7 +128,7 @@ export default function VideoTrimmer({
         <Video
           ref={videoRef}
           source={{ uri: videoUri }}
-          style={styles.video}
+          style={[styles.video, { width, height: previewHeight }]}
           resizeMode={ResizeMode.CONTAIN}
           shouldPlay={false}
           isLooping={false}
@@ -137,7 +139,7 @@ export default function VideoTrimmer({
         </TouchableOpacity>
       </View>
 
-      <View style={styles.trimControls}>
+      <View style={[styles.trimControls, { paddingBottom: 20 }]}>
         <View style={styles.timeInfo}>
           <Text style={styles.timeText}>
             Duration: {formatTime(trimDuration)} / {formatTime(maxDuration)} max
@@ -195,7 +197,7 @@ export default function VideoTrimmer({
           </View>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -209,7 +211,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
     paddingBottom: 15,
     backgroundColor: '#111',
   },
@@ -230,11 +231,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    maxHeight: height * 0.5,
   },
   video: {
-    width: width,
-    height: height * 0.5,
+    width: '100%',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Image } from 'expo-image';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -46,7 +47,14 @@ function VideoRowCard({ video }: { video: VideoItem }) {
       activeOpacity={0.85}
     >
       <View style={styles.videoRowPreview}>
-        <Text style={styles.videoRowPreviewText}>PLAY</Text>
+        {video.thumbnailUrl ? (
+          <Image
+            source={{ uri: video.thumbnailUrl }}
+            style={styles.videoRowThumbnail}
+            contentFit="cover"
+            transition={150}
+          />
+        ) : null}
       </View>
       <View style={styles.videoRowMeta}>
         <Text style={styles.videoRowTitle} numberOfLines={1}>
@@ -85,7 +93,6 @@ export default function DiscoverScreen() {
       void api
         .searchDiscover(trimmed, 0, 12)
         .then((response) => setSearchResults(response))
-        .catch((error) => console.error('Error searching discover:', error))
         .finally(() => setSearching(false));
     }, 250);
 
@@ -93,16 +100,11 @@ export default function DiscoverScreen() {
   }, [query]);
 
   const loadDiscover = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getDiscover();
-      setDiscoverData(data);
-    } catch (error) {
-      console.error('Error loading discover:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    setLoading(true);
+    const data = await api.getDiscover();
+    setDiscoverData(data);
+    setLoading(false);
+    setRefreshing(false);
   };
 
   const onRefresh = () => {
@@ -323,13 +325,11 @@ const styles = StyleSheet.create({
     width: 86,
     borderRadius: 14,
     backgroundColor: '#262626',
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  videoRowPreviewText: {
-    color: '#fff',
-    fontWeight: '800',
-    letterSpacing: 1,
+  videoRowThumbnail: {
+    width: '100%',
+    height: '100%',
   },
   videoRowMeta: {
     flex: 1,

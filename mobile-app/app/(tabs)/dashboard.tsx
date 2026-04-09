@@ -53,15 +53,13 @@ export default function ProfileScreen() {
     try {
       setLoading(true);
       const [profileData, videoData, dashboardData] = await Promise.all([
-        api.getMyProfile(),
-        api.getMyVideos(),
+        api.getMyProfile().catch(() => null),
+        api.getMyVideos().catch(() => []),
         api.getCreatorDashboard().catch(() => null),
       ]);
       setProfile(profileData);
       setVideos(videoData);
       setDashboard(dashboardData);
-    } catch (error) {
-      console.error('Error loading profile data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);

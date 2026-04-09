@@ -1,19 +1,17 @@
 /**
- * Camera Screen — Quay video multi-segment
- *
- * Chuyển sang expo-camera để hỗ trợ Expo Go.
+ * Camera Screen - multi-segment hold-to-record flow.
  */
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  SafeAreaView,
   StyleSheet,
-  View,
   Text,
   TouchableOpacity,
-  Pressable,
-  Alert,
-  ActivityIndicator,
-  SafeAreaView,
+  View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -23,45 +21,52 @@ import {
 } from "expo-camera";
 import { cleanupLocalFiles, concatSegments } from "@/services/ffmpegService";
 
-const MAX_DURATION = 60; // Tối đa 60 giây
+const MAX_DURATION = 60;
+const MIN_RECORDING_HOLD_MS = 350;
+const MIN_SEGMENT_DURATION = 0.5;
 
 interface Segment {
   uri: string;
-  duration: number; // giây
+  duration: number;
 }
 
 export default function CameraScreen() {
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const segmentsRef = useRef<Segment[]>([]);
+  const isRecordingRef = useRef(false);
+  const isStoppingRef = useRef(false);
+  const segmentStartRef = useRef<number | null>(null);
+  const cameraReadyRef = useRef(false);
 
-  // Permissions
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] =
     useMicrophonePermissions();
-
-  // Camera state
   const [facing, setFacing] = useState<"back" | "front">("back");
-
-  // Recording state
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [segments, setSegments] = useState<Segment[]>([]);
-  const [currentSegmentStart, setCurrentSegmentStart] = useState<number | null>(
-    null,
-  );
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Timer để đếm thời gian đang quay
   const [recordingElapsed, setRecordingElapsed] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalDuration =
-    segments.reduce((sum, s) => sum + s.duration, 0) + recordingElapsed;
+    segments.reduce((sum, segment) => sum + segment.duration, 0) +
+    recordingElapsed;
 
-  // Request permissions
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
+
   useEffect(() => {
     (async () => {
-      if (!cameraPermission?.granted) await requestCameraPermission();
-      if (!microphonePermission?.granted) await requestMicrophonePermission();
+      if (!cameraPermission?.granted) {
+        await requestCameraPermission();
+      }
+      if (!microphonePermission?.granted) {
+        await requestMicrophonePermission();
+      }
     })();
   }, [
     cameraPermission,
@@ -70,103 +75,167 @@ export default function CameraScreen() {
     requestMicrophonePermission,
   ]);
 
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  const stopRecording = useCallback(async () => {
-    if (!cameraRef.current || !isRecording) return;
-
-    setIsRecording(false);
-    setRecordingElapsed(0);
+  const clearRecordingTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+  }, []);
+
+  const clearPendingStop = useCallback(() => {
+    if (stopTimeoutRef.current) {
+      clearTimeout(stopTimeoutRef.current);
+      stopTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearRecordingTimer();
+      clearPendingStop();
+    };
+  }, [clearPendingStop, clearRecordingTimer]);
+
+  const resetRecordingSession = useCallback(() => {
+    clearRecordingTimer();
+    clearPendingStop();
+    isRecordingRef.current = false;
+    isStoppingRef.current = false;
+    segmentStartRef.current = null;
+    setIsRecording(false);
+    setRecordingElapsed(0);
+  }, [clearPendingStop, clearRecordingTimer]);
+
+  const stopRecording = useCallback(async (force = false) => {
+    if (
+      !cameraRef.current ||
+      !isRecordingRef.current ||
+      isStoppingRef.current
+    ) {
+      return;
+    }
+
+    const segmentStart = segmentStartRef.current;
+    if (!force && segmentStart) {
+      const elapsed = Date.now() - segmentStart;
+      if (elapsed < MIN_RECORDING_HOLD_MS) {
+        if (!stopTimeoutRef.current) {
+          stopTimeoutRef.current = setTimeout(() => {
+            stopTimeoutRef.current = null;
+            void stopRecording(true);
+          }, MIN_RECORDING_HOLD_MS - elapsed);
+        }
+        return;
+      }
+    }
+
+    isStoppingRef.current = true;
+    clearPendingStop();
+    clearRecordingTimer();
+    setIsRecording(false);
+    setRecordingElapsed(0);
 
     try {
-      await cameraRef.current.stopRecording();
-    } catch (err) {
-      console.error("Stop recording error:", err);
+      cameraRef.current.stopRecording();
+    } catch (error) {
+      console.error("Stop recording error:", error);
+      resetRecordingSession();
     }
-  }, [isRecording]);
+  }, [clearPendingStop, clearRecordingTimer, resetRecordingSession]);
 
   const startRecording = useCallback(async () => {
-    if (!cameraRef.current || isRecording) return;
-    if (totalDuration >= MAX_DURATION) {
+    if (!cameraRef.current || isRecordingRef.current || isProcessing) {
+      return;
+    }
+
+    if (!cameraReadyRef.current) {
+      Alert.alert("Camera chua san sang", "Hay doi camera san sang roi thu lai.");
+      return;
+    }
+
+    const existingDuration = segmentsRef.current.reduce(
+      (sum, segment) => sum + segment.duration,
+      0,
+    );
+
+    if (existingDuration >= MAX_DURATION) {
       Alert.alert(
-        "Đã đạt giới hạn",
-        `Tổng thời lượng tối đa là ${MAX_DURATION} giây.`,
+        "Da dat gioi han",
+        `Tong thoi luong toi da la ${MAX_DURATION} giay.`,
       );
       return;
     }
 
     try {
+      clearPendingStop();
+      isRecordingRef.current = true;
+      isStoppingRef.current = false;
+      segmentStartRef.current = Date.now();
       setIsRecording(true);
-      setCurrentSegmentStart(Date.now());
       setRecordingElapsed(0);
 
-      // Start elapsed timer
       timerRef.current = setInterval(() => {
         setRecordingElapsed((prev) => {
-          const newVal = prev + 0.1;
-          const currentTotal =
-            segments.reduce((sum, s) => sum + s.duration, 0) + newVal;
-          if (currentTotal >= MAX_DURATION) {
+          const nextValue = prev + 0.1;
+          if (existingDuration + nextValue >= MAX_DURATION) {
             void stopRecording();
           }
-          return newVal;
+          return nextValue;
         });
       }, 100);
 
       const video = await cameraRef.current.recordAsync({
-        maxDuration:
-          MAX_DURATION - segments.reduce((sum, s) => sum + s.duration, 0),
+        maxDuration: Math.max(1, Math.ceil(MAX_DURATION - existingDuration)),
       });
 
-      if (video) {
-        const duration =
-          (Date.now() - (currentSegmentStart || Date.now())) / 1000;
-        setSegments((prev) => [
-          ...prev,
-          { uri: video.uri, duration: Math.max(0.5, duration) },
-        ]);
+      const segmentStart = segmentStartRef.current;
+      if (video?.uri && segmentStart) {
+        const duration = Math.max(
+          MIN_SEGMENT_DURATION,
+          (Date.now() - segmentStart) / 1000,
+        );
+        setSegments((prev) => {
+          const nextSegments = [...prev, { uri: video.uri, duration }];
+          segmentsRef.current = nextSegments;
+          return nextSegments;
+        });
       }
     } catch (error) {
       console.error("Recording error:", error);
-      setIsRecording(false);
-      setRecordingElapsed(0);
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      Alert.alert(
+        "Loi quay video",
+        "Khong the bat dau quay. Hay doi camera on dinh roi thu lai.",
+      );
+    } finally {
+      resetRecordingSession();
     }
-  }, [
-    isRecording,
-    totalDuration,
-    segments,
-    currentSegmentStart,
-    stopRecording,
-  ]);
+  }, [clearPendingStop, isProcessing, resetRecordingSession, stopRecording]);
 
   const handleFlipCamera = () => {
+    if (isRecordingRef.current || isProcessing) {
+      return;
+    }
+    cameraReadyRef.current = false;
+    setIsCameraReady(false);
     setFacing((current) => (current === "back" ? "front" : "back"));
   };
 
   const handleDeleteLastSegment = () => {
     if (segments.length === 0) return;
-    Alert.alert("Xóa clip cuối?", "Bạn có chắc muốn xóa đoạn vừa quay?", [
-      { text: "Hủy", style: "cancel" },
+
+    Alert.alert("Xoa clip cuoi?", "Ban co chac muon xoa doan vua quay?", [
+      { text: "Huy", style: "cancel" },
       {
-        text: "Xóa",
+        text: "Xoa",
         style: "destructive",
         onPress: () => {
-          const lastSegment = segments[segments.length - 1];
+          const lastSegment = segmentsRef.current[segmentsRef.current.length - 1];
           void cleanupLocalFiles([lastSegment?.uri]);
-          setSegments((prev) => prev.slice(0, -1));
+          setSegments((prev) => {
+            const nextSegments = prev.slice(0, -1);
+            segmentsRef.current = nextSegments;
+            return nextSegments;
+          });
         },
       },
     ]);
@@ -174,7 +243,7 @@ export default function CameraScreen() {
 
   const handleNext = useCallback(async () => {
     if (segments.length === 0) {
-      Alert.alert("Chưa có video", "Hãy quay ít nhất một đoạn video.");
+      Alert.alert("Chua co video", "Hay quay it nhat mot doan video.");
       return;
     }
 
@@ -184,7 +253,7 @@ export default function CameraScreen() {
       if (segments.length === 1) {
         videoUri = segments[0].uri;
       } else {
-        videoUri = await concatSegments(segments.map((s) => s.uri));
+        videoUri = await concatSegments(segments.map((segment) => segment.uri));
         await cleanupLocalFiles(segments.map((segment) => segment.uri));
       }
 
@@ -194,17 +263,33 @@ export default function CameraScreen() {
       });
     } catch (error: any) {
       console.error("Concat error:", error);
-      Alert.alert("Lỗi", "Không thể ghép các đoạn video. Vui lòng thử lại.");
+      Alert.alert("Loi", "Khong the ghep cac doan video. Vui long thu lai.");
     } finally {
       setIsProcessing(false);
     }
   }, [segments, router]);
 
+  const discardSegmentsAndExit = useCallback(async () => {
+    await cleanupLocalFiles(segmentsRef.current.map((segment) => segment.uri));
+    router.back();
+  }, [router]);
+
   const handleClose = () => {
+    if (isRecordingRef.current || isStoppingRef.current) {
+      Alert.alert("Dang quay", "Hay tha nut quay de ket thuc doan hien tai.");
+      return;
+    }
+
     if (segments.length > 0) {
-      Alert.alert("Thoát?", "Các đoạn video đã quay sẽ bị mất.", [
-        { text: "Hủy", style: "cancel" },
-        { text: "Thoát", style: "destructive", onPress: () => router.back() },
+      Alert.alert("Thoat?", "Cac doan video da quay se bi mat.", [
+        { text: "Huy", style: "cancel" },
+        {
+          text: "Thoat",
+          style: "destructive",
+          onPress: () => {
+            void discardSegmentsAndExit();
+          },
+        },
       ]);
     } else {
       router.back();
@@ -216,7 +301,7 @@ export default function CameraScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.permissionContainer}>
           <ActivityIndicator size="large" color="#FF3B30" />
-          <Text style={styles.permissionText}>Đang kiểm tra quyền...</Text>
+          <Text style={styles.permissionText}>Dang kiem tra quyen...</Text>
         </View>
       </SafeAreaView>
     );
@@ -227,7 +312,7 @@ export default function CameraScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.permissionContainer}>
           <Text style={styles.permissionText}>
-            Ứng dụng cần quyền truy cập Camera và Micro để quay video.
+            Ung dung can quyen truy cap Camera va Micro de quay video.
           </Text>
           <TouchableOpacity
             style={styles.permissionBtn}
@@ -236,13 +321,13 @@ export default function CameraScreen() {
               await requestMicrophonePermission();
             }}
           >
-            <Text style={styles.permissionBtnText}>Cấp quyền</Text>
+            <Text style={styles.permissionBtnText}>Cap quyen</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => router.back()}
           >
-            <Text style={styles.backBtnText}>Quay lại</Text>
+            <Text style={styles.backBtnText}>Quay lai</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -256,39 +341,54 @@ export default function CameraScreen() {
         style={StyleSheet.absoluteFill}
         facing={facing}
         mode="video"
+        videoQuality="720p"
+        onCameraReady={() => {
+          cameraReadyRef.current = true;
+          setIsCameraReady(true);
+        }}
         onMountError={(error) => {
+          cameraReadyRef.current = false;
+          setIsCameraReady(false);
           console.error("Camera mount error:", error);
-          Alert.alert("Lỗi", "Không thể khởi động camera.");
+          Alert.alert("Loi", "Khong the khoi dong camera.");
         }}
       />
 
       {isProcessing && (
         <View style={styles.processingOverlay}>
           <ActivityIndicator size="large" color="#FF3B30" />
-          <Text style={styles.processingText}>Đang ghép video...</Text>
+          <Text style={styles.processingText}>Dang ghep video...</Text>
         </View>
       )}
 
       <SafeAreaView style={styles.topBar}>
-        <TouchableOpacity style={styles.topBtn} onPress={handleClose}>
-          <Text style={styles.topBtnText}>✕</Text>
+        <TouchableOpacity
+          style={styles.topBtn}
+          onPress={handleClose}
+          disabled={isRecording || isProcessing}
+        >
+          <Text style={styles.topBtnText}>X</Text>
         </TouchableOpacity>
 
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack}>
-            {segments.map((seg, i) => {
-              const segPercent = (seg.duration / MAX_DURATION) * 100;
-              const prevPercent = segments
-                .slice(0, i)
-                .reduce((sum, s) => sum + (s.duration / MAX_DURATION) * 100, 0);
+            {segments.map((segment, index) => {
+              const segmentPercent = (segment.duration / MAX_DURATION) * 100;
+              const previousPercent = segments
+                .slice(0, index)
+                .reduce(
+                  (sum, item) => sum + (item.duration / MAX_DURATION) * 100,
+                  0,
+                );
+
               return (
                 <View
-                  key={i}
+                  key={index}
                   style={[
                     styles.progressSegment,
                     {
-                      left: `${prevPercent}%`,
-                      width: `${segPercent}%`,
+                      left: `${previousPercent}%`,
+                      width: `${segmentPercent}%`,
                     },
                   ]}
                 />
@@ -299,7 +399,7 @@ export default function CameraScreen() {
                 style={[
                   styles.progressCurrent,
                   {
-                    left: `${(segments.reduce((s, seg) => s + seg.duration, 0) / MAX_DURATION) * 100}%`,
+                    left: `${(segments.reduce((sum, segment) => sum + segment.duration, 0) / MAX_DURATION) * 100}%`,
                     width: `${(recordingElapsed / MAX_DURATION) * 100}%`,
                   },
                 ]}
@@ -311,8 +411,12 @@ export default function CameraScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.topBtn} onPress={handleFlipCamera}>
-          <Text style={styles.topBtnText}>🔄</Text>
+        <TouchableOpacity
+          style={styles.topBtn}
+          onPress={handleFlipCamera}
+          disabled={isRecording || isProcessing}
+        >
+          <Text style={styles.topBtnText}>R</Text>
         </TouchableOpacity>
       </SafeAreaView>
 
@@ -325,15 +429,25 @@ export default function CameraScreen() {
           onPress={handleDeleteLastSegment}
           disabled={segments.length === 0 || isRecording}
         >
-          <Text style={styles.sideBtnText}>↩️</Text>
-          <Text style={styles.sideBtnLabel}>Hoàn tác</Text>
+          <Text style={styles.sideBtnText}>Undo</Text>
+          <Text style={styles.sideBtnLabel}>Hoan tac</Text>
         </TouchableOpacity>
 
         <View style={styles.recordContainer}>
           <Pressable
-            style={[styles.recordBtn, isRecording && styles.recordBtnActive]}
+            style={[
+              styles.recordBtn,
+              isRecording && styles.recordBtnActive,
+              !isCameraReady && styles.recordBtnDisabled,
+            ]}
             onPressIn={startRecording}
-            onPressOut={stopRecording}
+            onPressOut={() => {
+              void stopRecording();
+            }}
+            onTouchCancel={() => {
+              void stopRecording();
+            }}
+            disabled={!isCameraReady || isProcessing}
           >
             <View
               style={[
@@ -343,7 +457,11 @@ export default function CameraScreen() {
             />
           </Pressable>
           <Text style={styles.recordHint}>
-            {isRecording ? "Thả để dừng" : "Giữ để quay"}
+            {isRecording
+              ? "Tha de dung"
+              : isCameraReady
+                ? "Giu de quay"
+                : "Dang mo camera..."}
           </Text>
         </View>
 
@@ -355,14 +473,14 @@ export default function CameraScreen() {
           onPress={handleNext}
           disabled={segments.length === 0 || isRecording || isProcessing}
         >
-          <Text style={styles.sideBtnText}>➡️</Text>
-          <Text style={styles.sideBtnLabel}>Tiếp</Text>
+          <Text style={styles.sideBtnText}>Next</Text>
+          <Text style={styles.sideBtnLabel}>Tiep</Text>
         </TouchableOpacity>
       </View>
 
       {segments.length > 0 && !isRecording && (
         <View style={styles.segmentBadge}>
-          <Text style={styles.segmentBadgeText}>{segments.length} đoạn</Text>
+          <Text style={styles.segmentBadgeText}>{segments.length} doan</Text>
         </View>
       )}
     </View>
@@ -493,6 +611,7 @@ const styles = StyleSheet.create({
   },
   sideBtnText: {
     fontSize: 24,
+    color: "#fff",
   },
   sideBtnLabel: {
     color: "#fff",
@@ -511,6 +630,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 4,
+  },
+  recordBtnDisabled: {
+    opacity: 0.5,
   },
   recordBtnActive: {
     borderColor: "#FF3B30",

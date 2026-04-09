@@ -18,17 +18,17 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
-  Dimensions,
   Alert,
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { Asset } from 'expo-asset';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import VideoTrimmer from '@/components/VideoTrimmer';
 import MusicPicker from '@/components/MusicPicker';
@@ -37,9 +37,6 @@ import TextOverlayComponent, { DraggableText, TextOverlayParams } from '@/compon
 import ColorFilters, { FILTER_PRESETS } from '@/components/ColorFilters';
 import { exportVideo, EditorState } from '@/services/ffmpegService';
 import { MusicTrack } from '@/constants/MusicLibrary';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const VIDEO_PREVIEW_HEIGHT = SCREEN_HEIGHT * 0.45;
 
 type EditorTab = 'trim' | 'music' | 'speed' | 'text' | 'filter';
 
@@ -53,8 +50,10 @@ const EDITOR_TABS: { key: EditorTab; icon: string; label: string }[] = [
 
 export default function EditorScreen() {
   const router = useRouter();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const params = useLocalSearchParams<{ videoUri: string }>();
   const videoUri = params.videoUri || '';
+  const videoPreviewHeight = Math.min(windowHeight * 0.42, windowWidth * 1.15);
 
   // Video player
   const videoRef = useRef<Video>(null);
@@ -159,8 +158,8 @@ export default function EditorScreen() {
       if (textParams) {
         // Chuyển đổi tọa độ từ preview sang tọa độ video thực tế
         // Giả sử video 1080p, preview width = SCREEN_WIDTH
-        const scaleX = 1080 / SCREEN_WIDTH;
-        const scaleY = 1920 / VIDEO_PREVIEW_HEIGHT;
+        const scaleX = 1080 / windowWidth;
+        const scaleY = 1920 / videoPreviewHeight;
         setTextParams({
           ...textParams,
           x: Math.round(x * scaleX),
@@ -168,7 +167,7 @@ export default function EditorScreen() {
         });
       }
     },
-    [textParams]
+    [textParams, videoPreviewHeight, windowWidth]
   );
 
   // ===== EXPORT =====
@@ -209,9 +208,12 @@ export default function EditorScreen() {
       // Resolve music URI nếu có
       if (state.music && selectedMusic?.source) {
         try {
-          const asset = Asset.fromModule(selectedMusic.source);
-          await asset.downloadAsync();
-          state.music.uri = asset.localUri || '';
+          const [asset] = await Asset.loadAsync(selectedMusic.source);
+          const resolvedMusicUri = asset?.localUri || asset?.uri || '';
+          if (!resolvedMusicUri) {
+            throw new Error('Missing asset uri');
+          }
+          state.music.uri = resolvedMusicUri;
         } catch {
           console.warn('Không thể load file nhạc, bỏ qua nhạc nền.');
           state.music = null;
@@ -323,8 +325,8 @@ export default function EditorScreen() {
           <TextOverlayComponent
             params={textParams}
             onChange={handleTextChange}
-            previewWidth={SCREEN_WIDTH}
-            previewHeight={VIDEO_PREVIEW_HEIGHT}
+            previewWidth={windowWidth}
+            previewHeight={videoPreviewHeight}
           />
         );
       case 'filter':
@@ -339,7 +341,7 @@ export default function EditorScreen() {
 
   if (!videoUri) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Không tìm thấy video.</Text>
           <TouchableOpacity onPress={() => router.back()}>
@@ -351,7 +353,7 @@ export default function EditorScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Export overlay */}
       {isExporting && (
         <View style={styles.exportOverlay}>
@@ -397,7 +399,7 @@ export default function EditorScreen() {
       </View>
 
       {/* Video Preview */}
-      <View style={styles.videoContainer}>
+      <View style={[styles.videoContainer, { height: videoPreviewHeight }]}>
         <Video
           ref={videoRef}
           source={{ uri: videoUri }}
@@ -413,8 +415,8 @@ export default function EditorScreen() {
           <DraggableText
             params={textParams}
             onPositionChange={handleTextPositionChange}
-            containerWidth={SCREEN_WIDTH}
-            containerHeight={VIDEO_PREVIEW_HEIGHT}
+            containerWidth={windowWidth}
+            containerHeight={videoPreviewHeight}
           />
         )}
 
@@ -467,7 +469,10 @@ export default function EditorScreen() {
 
       {/* Tab Content */}
       <KeyboardAvoidingView
-        style={styles.tabContentContainer}
+        style={[
+          styles.tabContentContainer,
+          { paddingBottom: 12 },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {renderActiveTab()}
@@ -539,8 +544,7 @@ const styles = StyleSheet.create({
   },
   // Video preview
   videoContainer: {
-    width: SCREEN_WIDTH,
-    height: VIDEO_PREVIEW_HEIGHT,
+    width: '100%',
     backgroundColor: '#111',
     position: 'relative',
   },
@@ -636,6 +640,7 @@ const styles = StyleSheet.create({
   tabContentContainer: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+    minHeight: 0,
   },
   tabContent: {
     flex: 1,
@@ -682,7 +687,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     borderRadius: 16,
     padding: 30,
-    width: SCREEN_WIDTH * 0.8,
+    width: '80%',
+    maxWidth: 360,
     alignItems: 'center',
   },
   exportTitle: {
