@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -160,8 +162,13 @@ export default function CommentSection({ videoId, visible, onClose, onCommentsCo
   );
 
   return (
-    <View style={styles.overlay} pointerEvents="box-none">
-      <Pressable style={styles.backdrop} onPress={onClose} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.overlay} pointerEvents="box-none">
+          <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={styles.sheetHost} pointerEvents="box-none">
         <View
           style={[
@@ -245,6 +252,8 @@ export default function CommentSection({ videoId, visible, onClose, onCommentsCo
         </View>
       </View>
     </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -252,6 +261,8 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
+    zIndex: 9999,
+    elevation: 9999,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

@@ -1,107 +1,124 @@
-Video Sharing Social Network Project
-Dự án xây dựng ứng dụng mạng xã hội chia sẻ video ngắn (tương tự TikTok/Reels) bao gồm Backend (Spring Boot), Mobile App (React Native/Expo) và hạ tầng Docker (PostgreSQL, MinIO).
+# PTiTube – Short‑Video Social Network
 
-🏗 Kiến trúc hệ thống
-Dự án được tổ chức thành các thành phần chính:
+## 📖 Overview
+A lightweight TikTok‑style video sharing platform built with:
+- **Backend** – Spring Boot 3 (Java 17)
+- **Mobile App** – React Native (Expo)
+- **Infrastructure** – Docker Compose (PostgreSQL 15, MinIO)
 
-Thành phần	Công nghệ	Mô tả
-Backend	Java Spring Boot 3	API Server, xử lý logic, Security, Upload
-Mobile App	React Native (Expo)	Ứng dụng di động đa nền tảng (iOS/Android)
-Database	PostgreSQL 15	Lưu trữ dữ liệu người dùng, video metadata
-Storage	MinIO	Object Storage tương thích S3 để lưu video file
-Infrastructure	Docker Compose	Quản lý deployment toàn bộ hệ thống
-🚀 Hướng dẫn Cài đặt & Khởi động
-1. Yêu cầu tiên quyết (Prerequisites)
-Docker Desktop (đã cài đặt và đang chạy)
-Node.js (v18+) & Manager gói (npm/yarn)
-Java JDK 17+ (Tùy chọn, nếu muốn phát triển backend)
-Android Studio / Xcode (Để chạy giả lập) hoặc ứng dụng Expo Go trên điện thoại.
-2. Khởi động Backend & Dịch vụ
-Sử dụng Docker Compose để khởi chạy toàn bộ hạ tầng Server:
+The project demonstrates a full‑stack architecture, AI‑powered recommendation, and modern DevOps practices.
 
-# Tại thư mục gốc của dự án
+---
+
+## 🏗 System Architecture
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Backend** | Java Spring Boot 3 | REST API, authentication, video upload, recommendation engine |
+| **Mobile App** | React Native (Expo) | Cross‑platform iOS/Android client |
+| **Database** | PostgreSQL 15 | Persistent storage for users, videos, metadata |
+| **Object Storage** | MinIO (S3‑compatible) | Stores video files |
+| **Orchestration** | Docker Compose | Spins up all services together |
+
+---
+
+## 🚀 Getting Started
+### Prerequisites
+- Docker Desktop (running)
+- Node.js v18+ (npm or yarn)
+- (Optional) Java JDK 17 for backend development
+- Android Studio / Xcode **or** Expo Go on a real device
+
+### Launch the stack
+```bash
+# From the project root
 docker-compose up -d --build
-Lệnh này sẽ khởi động 3 container:
+```
+The command starts three containers:
+- `video-db` – PostgreSQL (port 5432)
+- `video-minio` – MinIO (ports 9000 / 9001)
+- `video-backend` – Spring Boot API (port 8080)
 
-video-db: PostgreSQL Database (Port 5432)
-video-minio: MinIO Object Storage (Port 9000/9001)
-video-backend: Spring Boot Application (Port 8080)
-Kiểm tra trạng thái:
+#### Verify services
+- API health: <http://localhost:8080/api/videos>
+- MinIO console: <http://localhost:9001> (user: `minio_admin`, pass: `minio_password`)
 
-API Docs/Healthcheck: http://localhost:8080/api/videos
-MinIO Console: http://localhost:9001 (User: minio_admin / Pass: minio_password)
-3. Khởi động Mobile App
-Di chuyển vào thư mục mobile app:
+---
 
+## 📱 Mobile App
+```bash
 cd mobile-app
-Cài đặt thư viện:
-
 npm install
-Cấu hình địa chỉ IP:
+# Update the host IP (LAN address) in src/constants/Config.ts
+npm start   # runs Expo Go
+```
+> **Tip:** Use a real device or an emulator. Do **not** use `localhost` in `Config.ts`; set it to your machine’s LAN IP (e.g., `192.168.1.42`).
 
-Mở file mobile-app/constants/Config.ts.
-Cập nhật biến HOST_IP thành địa chỉ IPv4 LAN của máy bạn (VD: 192.168.1.x).
-Lưu ý: Không dùng localhost nếu chạy trên điện thoại thật hoặc giả lập Android.
-Chạy ứng dụng:
+---
 
-npx expo start (update: do lệnh này bị lỗi, khi chạy thì expo sẽ không tự động get được IP trong config.ts)
-dùng lệnh 'npm start' thay thế.
-npm start
+## 📚 API Endpoints (selected)
+| Category | Method | Path | Description |
+|----------|--------|------|-------------|
+| **Auth** | `POST` | `/api/auth/register` | Register a new user |
+|          | `POST` | `/api/auth/login`    | Login and receive JWT |
+| **Videos**| `POST` | `/api/videos/upload` | Upload a video (multipart) |
+|          | `GET`  | `/api/videos`        | Retrieve feed (random or AI‑powered) |
+|          | `GET`  | `/api/videos/stream/{id}` | Stream video with byte‑range support |
 
-Hiện tại mặc định expo sẽ sử dụng phiên bản expo developer(phiên bản này yêu cầu phải build apk tốn thời gian xử lý và nặng nề cấu hình,
-anh em làm những tính năng cơ bản thì không cần thiết phải sử dụng expo dev,
-Khi hiện mã QR expo, hãy bấm phím 'S' để chuyển về phiên bản expo Go
+---
 
-Quét mã QR bằng ứng dụng Expo Go (Android/iOS).
-Hoặc nhấn a để mở Android Emulator, i để mở iOS Simulator.
-📚 API Endpoint Chính
-Authentication
-Register: POST /api/auth/register
-Body: { "username": "...", "email": "...", "password": "..." }
-Login: POST /api/auth/login
-Body: { "username": "...", "password": "..." }
-Videos
-Upload: POST /api/videos/upload (Multipart/form-data)
-Params: file (video file), title (text), description (text)
-Auth: Yêu cầu Bearer Token (hoặc mặc định testuser trong môi trường dev).
-Get Feed: GET /api/videos
-Trả về danh sách video.
-Stream: GET /api/videos/stream/{id}
-Stream nội dung video (byte range support).
-🛠 Troubleshooting (Gỡ lỗi thường gặp)
-1. Lỗi kết nối từ Mobile App (Network Error)
+## 🛠 Troubleshooting
+1. **Mobile App – Network Error**
+   - Ensure the phone and the computer are on the same Wi‑Fi network.
+   - Open firewall port 8080 or disable the firewall temporarily.
+   - Verify `HOST_IP` in `mobile-app/src/constants/Config.ts` points to your LAN IP.
+2. **Database & Enum Mismatch**
+   - The DB schema now uses `VARCHAR` with check constraints instead of native enums.
+   - If you see `column "role" is of type user_role …`, run:
+     ```bash
+     docker-compose down -v
+     docker-compose up -d --build
+     ```
+3. **Port Conflict (MinIO Console)**
+   - Error `bind: An attempt was made to access a socket …` means port 9001 is already in use.
+   - Edit `docker-compose.yml` to change `9001` to an unused port (e.g., `9002`).
+4. **Reset Data & Storage**
+   ```bash
+   docker-compose down -v   # removes volumes (DB + MinIO data)
+   docker-compose up -d --build
+   ```
 
-Đảm bảo điện thoại và laptop cùng kết nối một mạng Wifi.
-Tắt tường lửa (Firewall) trên máy tính hoặc mở port 8080.
-Kiểm tra lại HOST_IP trong Config.ts.
-2. Lỗi Database & Enum (Type Mismatch)
+---
 
-Khắc phục: Database đã được chuyển từ PostgreSQL Native ENUM sang VARCHAR với CHECK constraints để tương thích tốt nhất với Hibernate.
-Lưu ý: Nếu gặp lỗi column "role" is of type user_role but expression is of type character varying, hãy chạy:
-docker-compose down -v
-docker-compose up -d --build
-3. Reset Dữ liệu & Storage
+## 🔧 Code Fixes Summary (Backend)
+- Added constants `REPOST_BASE_BOOST` and `SELF_REPOST_BOOST`.
+- Implemented `calculateScore` to compute a video’s ranking based on likes, views, comments, reposts, and freshness.
+- Updated all `convertToFeedItem` calls to pass a `FeedCandidate` (including the calculated score) instead of raw `Video` + score.
+- Adjusted random and AI feed pipelines to use `FeedCandidate.original` with the computed score.
+- Fixed compilation errors related to the above changes.
 
+---
 
-Để xóa sạch dữ liệu DB và video trong MinIO:
-docker-compose down -v
-docker-compose up -d --build
-🛠 Tính năng kỹ thuật nổi bật
-UUID: Sử dụng UUID v4 cho toàn bộ các Primary Key để bảo mật và dễ dàng mở rộng.
-Database Triggers:
-Tự động hóa cập nhật search_vector cho tìm kiếm toàn văn (Full-Text Search).
-Tự động khởi tạo và cập nhật thống kê (like_count, view_count) thông qua Triggers để giảm tải cho Backend.
-Object Storage: Tích hợp MinIO (S3 compatible) để lưu trữ video dung lượng lớn một cách chuyên nghiệp.
-📂 Cấu trúc Thư mục
-project/
-├── backend/                # Source code Spring Boot
-│   ├── src/main/java...    # Controllers, Services, Models
-│   ├── Dockerfile
-│   └── pom.xml
-├── mobile-app/             # Source code React Native
-│   ├── app/                # Screens & Navigation
-│   ├── components/         # UI Components
-│   └── package.json
-├── database/               # Init SQL scripts
-├── docker-compose.yml      # Config hạ tầng
-└── README.md               # Tài liệu này
+## 🛡 Technical Highlights
+- **UUID v4** for all primary keys (security & scalability).
+- **Database triggers** for automatic `search_vector` updates (full‑text search) and statistics aggregation (`like_count`, `view_count`).
+- **MinIO** provides S3‑compatible object storage for large video files.
+
+---
+
+## 📂 Project Structure
+```
+ptitube/
+├─ backend/            # Spring Boot source code
+│  ├─ src/main/java/...   # Controllers, services, models
+│  ├─ Dockerfile
+│  └─ pom.xml
+├─ mobile-app/         # React Native source code
+│  ├─ src/...
+│  └─ package.json
+├─ database/           # SQL initialization scripts
+├─ docker-compose.yml  # Docker orchestration
+└─ README.md           # This document
+```
+---
+
+*Happy coding!*

@@ -1,15 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import VideoGrid from '@/components/VideoGrid';
@@ -17,14 +7,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import type { DashboardData, ProfileData, VideoItem } from '@/services/api';
 import * as api from '@/services/api';
+import { User, LogIn, Mail, Lock, Settings, BarChart2, Grid, Edit3, LogOut, Shield } from 'lucide-react-native';
 
 const formatNumber = (num: number = 0) => {
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1)}M`;
-  }
-  if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}K`;
-  }
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
   return `${num}`;
 };
 
@@ -49,7 +36,6 @@ export default function ProfileScreen() {
       setLoading(false);
       return;
     }
-
     try {
       setLoading(true);
       const [profileData, videoData, dashboardData] = await Promise.all([
@@ -98,7 +84,6 @@ export default function ProfileScreen() {
       Alert.alert('Missing data', 'Please fill in all required fields.');
       return;
     }
-
     setSubmitting(true);
     try {
       if (isRegisterMode) {
@@ -106,7 +91,6 @@ export default function ProfileScreen() {
       } else {
         await login(username.trim(), password);
       }
-
       setUsername('');
       setPassword('');
       setEmail('');
@@ -130,461 +114,212 @@ export default function ProfileScreen() {
 
   const handleOpenConnections = (type: 'followers' | 'following') => {
     const targetUserId = profile?.id || user?.id;
-    if (!targetUserId) {
-      return;
-    }
-
+    if (!targetUserId) return;
     router.push(`/profile/${targetUserId}/${type}` as never);
   };
 
   if (authLoading || (token && loading)) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF3B30" />
+      <View className="flex-1 bg-surface items-center justify-center">
+        <ActivityIndicator size="large" color="#ff8c95" />
       </View>
     );
   }
 
   if (!token) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.authHero}>
-          <Text style={styles.authEyebrow}>PROFILE</Text>
-          <Text style={styles.authTitle}>Sign in to edit your profile and manage notifications.</Text>
-          <Text style={styles.authSubtitle}>
-            This tab now includes full profile editing, video grid, and creator stats.
-          </Text>
-        </View>
-
-        <View style={styles.authCard}>
-          <Text style={styles.authCardTitle}>{isRegisterMode ? 'Create account' : 'Login'}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            placeholderTextColor="#6f6f6f"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-          />
-          {isRegisterMode ? (
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#6f6f6f"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          ) : null}
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#6f6f6f"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSubmitAuth} disabled={submitting}>
-            {submitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryButtonText}>{isRegisterMode ? 'Create account' : 'Login'}</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => setIsRegisterMode((current) => !current)}>
-            <Text style={styles.switchText}>
-              {isRegisterMode ? 'Already have an account? Login' : 'Need an account? Register'}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-surface">
+        <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 80, flexGrow: 1 }}>
+          <View className="mb-12 items-center">
+            <View className="w-20 h-20 rounded-full bg-surface-container-highest items-center justify-center mb-6 shadow-[0_0_30px_rgba(255,140,149,0.3)]">
+              <User size={32} color="#ff8c95" />
+            </View>
+            <Text className="text-3xl font-display font-bold text-white mb-2 text-center tracking-widest">
+              Neon Identify
             </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <Text className="font-body text-gray-400 text-center px-4">
+              Enter the cinematic universe. Access your profile and connect.
+            </Text>
+          </View>
+
+          <View className="bg-surface-container-low p-6 rounded-3xl border border-surface-container-highest">
+            <Text className="text-xl font-headline font-semibold text-white mb-6">
+              {isRegisterMode ? 'Establish Identity' : 'Authenticate'}
+            </Text>
+
+            <View className="mb-4 bg-surface-container-highest flex-row items-center rounded-xl px-4 border border-outline-variant/30">
+              <User size={18} color="#999" />
+              <TextInput
+                className="flex-1 text-white font-body py-4 px-3"
+                placeholder="Username"
+                placeholderTextColor="#666"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+              />
+            </View>
+
+            {isRegisterMode && (
+              <View className="mb-4 bg-surface-container-highest flex-row items-center rounded-xl px-4 border border-outline-variant/30">
+                <Mail size={18} color="#999" />
+                <TextInput
+                  className="flex-1 text-white font-body py-4 px-3"
+                  placeholder="Email"
+                  placeholderTextColor="#666"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+            )}
+
+            <View className="mb-8 bg-surface-container-highest flex-row items-center rounded-xl px-4 border border-outline-variant/30">
+              <Lock size={18} color="#999" />
+              <TextInput
+                className="flex-1 text-white font-body py-4 px-3"
+                placeholder="Password"
+                placeholderTextColor="#666"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
+
+            <TouchableOpacity 
+              className="w-full bg-primary-dim py-4 rounded-xl items-center flex-row justify-center shadow-[0_4px_20px_rgba(232,0,72,0.4)]"
+              onPress={handleSubmitAuth}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text className="font-display font-bold text-white tracking-widest uppercase mr-2">
+                    {isRegisterMode ? 'Create Identity' : 'Access Node'}
+                  </Text>
+                  <LogIn size={18} color="#fff" />
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              className="mt-6 items-center py-2"
+              onPress={() => setIsRegisterMode(!isRegisterMode)}
+            >
+              <Text className="font-label text-sm text-secondary">
+                {isRegisterMode ? 'Returning user? Authenticate' : 'New here? Establish identity'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#FF3B30" />}
+    <ScrollView 
+      className="flex-1 bg-surface"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#ff8c95" />}
+      showsVerticalScrollIndicator={false}
     >
-      <View style={styles.profileHeader}>
-        <View style={styles.profileTopRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{(profile?.username || user?.username || 'U').slice(0, 1).toUpperCase()}</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/profile/edit' as never)}>
-              <Text style={styles.secondaryButtonText}>Edit profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.bellButton} onPress={() => router.push('/notifications' as never)}>
-              <Text style={styles.bellButtonText}>Bell</Text>
-              {unreadCount > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          </View>
+      <View className="pt-16 px-6 pb-6 border-b border-surface-container-high items-center">
+        <View className="flex-row w-full justify-between items-start absolute top-16 px-6 z-10">
+          <TouchableOpacity 
+            className="w-10 h-10 rounded-full bg-surface-container-highest items-center justify-center border border-outline-variant/30"
+            onPress={() => router.push('/profile/edit' as never)}
+          >
+            <Edit3 size={18} color="#ff8c95" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            className="w-10 h-10 rounded-full bg-surface-container-highest items-center justify-center border border-outline-variant/30"
+            onPress={handleLogout}
+          >
+            <LogOut size={18} color="#666" />
+          </TouchableOpacity>
         </View>
 
-        <Text style={styles.profileName} numberOfLines={1}>@{profile?.username || user?.username}</Text>
-        {profile?.bio ? <Text style={styles.profileBio}>{profile.bio}</Text> : null}
-        {profile?.email ? <Text style={styles.profileEmail}>{profile.email}</Text> : null}
-
-        <View style={styles.statRow}>
-          <TouchableOpacity style={styles.statPill} activeOpacity={0.85} onPress={() => handleOpenConnections('followers')}>
-            <Text style={styles.statValue}>{formatNumber(profile?.followerCount)}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.statPill} activeOpacity={0.85} onPress={() => handleOpenConnections('following')}>
-            <Text style={styles.statValue}>{formatNumber(profile?.followingCount)}</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </TouchableOpacity>
-          <View style={styles.statPill}>
-            <Text style={styles.statValue}>{formatNumber(profile?.videoCount)}</Text>
-            <Text style={styles.statLabel}>Videos</Text>
+        <View className="w-24 h-24 rounded-full bg-surface-container-highest items-center justify-center mb-4 mt-8 shadow-[0_0_30px_rgba(255,140,149,0.3)] border border-primary/20">
+          <Text className="text-4xl font-display font-bold text-primary">
+            {(profile?.username || user?.username || 'U').slice(0, 1).toUpperCase()}
+          </Text>
+        </View>
+        
+        <Text className="text-2xl font-display font-bold text-white mb-2">
+          @{profile?.username || user?.username}
+        </Text>
+        
+        {user?.role && (user.role === 'admin' || user.role === 'moderator') && (
+          <View className="flex-row items-center bg-primary-dim/20 px-3 py-1 rounded-full mb-6">
+            <Shield size={12} color="#ff8c95" className="mr-1" />
+            <Text className="text-xs font-label text-primary">{user.role.toUpperCase()}</Text>
           </View>
-          <View style={styles.statPill}>
-            <Text style={styles.statValue}>{formatNumber(profile?.totalLikes)}</Text>
-            <Text style={styles.statLabel}>Likes</Text>
+        )}
+
+        <View className="flex-row w-full justify-between px-6 mt-4">
+          <TouchableOpacity className="items-center" onPress={() => handleOpenConnections('followers')}>
+            <Text className="text-xl font-headline font-bold text-white">{formatNumber(profile?.followerCount)}</Text>
+            <Text className="text-xs font-label text-gray-500 uppercase tracking-widest mt-1">Followers</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity className="items-center" onPress={() => handleOpenConnections('following')}>
+            <Text className="text-xl font-headline font-bold text-white">{formatNumber(profile?.followingCount)}</Text>
+            <Text className="text-xs font-label text-gray-500 uppercase tracking-widest mt-1">Following</Text>
+          </TouchableOpacity>
+
+          <View className="items-center">
+            <Text className="text-xl font-headline font-bold text-tertiary">{formatNumber(dashboard?.totalLikes)}</Text>
+            <Text className="text-xs font-label text-gray-500 uppercase tracking-widest mt-1">Likes</Text>
           </View>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>My videos</Text>
-      <VideoGrid
-        videos={videos}
-        onVideoPress={(video) => router.push(`/video/${video.id}` as never)}
-        emptyTitle="Your profile is ready"
-        emptySubtitle="Post the first video to populate your profile grid."
-      />
-
-      {dashboard ? (
-        <>
-          <Text style={styles.sectionTitle}>Creator analytics</Text>
-          <View style={styles.analyticsGrid}>
-            <View style={styles.analyticsCard}>
-              <Text style={styles.analyticsValue}>{formatNumber(dashboard.totalViews)}</Text>
-              <Text style={styles.analyticsLabel}>Views</Text>
+      {dashboard && (
+        <View className="p-6 border-b border-surface-container-high">
+          <View className="flex-row items-center mb-4">
+            <BarChart2 size={20} color="#29fcf3" className="mr-2" />
+            <Text className="text-lg font-headline font-bold text-white tracking-wider">CREATOR INSIGHTS</Text>
+          </View>
+          
+          <View className="flex-row gap-4 mb-4">
+            <View className="flex-1 bg-surface-container-low p-4 rounded-2xl border border-surface-container-highest">
+              <Text className="text-xs font-label text-gray-400 mb-1 uppercase tracking-widest">Views</Text>
+              <Text className="text-2xl font-display font-bold text-white">{formatNumber(dashboard.totalViews)}</Text>
             </View>
-            <View style={styles.analyticsCard}>
-              <Text style={styles.analyticsValue}>{formatNumber(dashboard.totalLikes)}</Text>
-              <Text style={styles.analyticsLabel}>Likes</Text>
-            </View>
-            <View style={styles.analyticsCard}>
-              <Text style={styles.analyticsValue}>{formatNumber(dashboard.totalComments)}</Text>
-              <Text style={styles.analyticsLabel}>Comments</Text>
-            </View>
-            <View style={styles.analyticsCard}>
-              <Text style={styles.analyticsValue}>{dashboard.engagementRate.toFixed(1)}%</Text>
-              <Text style={styles.analyticsLabel}>Engagement</Text>
+            <View className="flex-1 bg-surface-container-low p-4 rounded-2xl border border-surface-container-highest">
+              <Text className="text-xs font-label text-gray-400 mb-1 uppercase tracking-widest">Watch Time</Text>
+              <Text className="text-2xl font-display font-bold text-secondary">
+                {Math.round(dashboard.totalViews * 2.5 / 60)}<Text className="text-sm">m</Text>
+              </Text>
             </View>
           </View>
+        </View>
+      )}
 
-          {dashboard.topVideos?.length ? (
-            <>
-              <Text style={styles.sectionTitle}>Top performing videos</Text>
-              {dashboard.topVideos.slice(0, 5).map((item) => (
-                <View key={item.videoId} style={styles.topVideoCard}>
-                  <View>
-                    <Text style={styles.topVideoTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={styles.topVideoStats}>
-                      {formatNumber(item.views)} views · {formatNumber(item.likes)} likes · {formatNumber(item.comments)} comments
-                    </Text>
-                  </View>
-                  <Text style={styles.topVideoRate}>{item.engagementRate.toFixed(1)}%</Text>
-                </View>
-              ))}
-            </>
-          ) : null}
-        </>
-      ) : null}
+      <View className="p-6 pb-24">
+        <View className="flex-row items-center mb-6 pl-2 border-l-2 border-primary">
+          <Grid size={20} color="#ff8c95" className="mr-2" />
+          <Text className="text-lg font-headline font-bold text-white tracking-wider uppercase">Your Sequences</Text>
+        </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
+        {videos.length > 0 ? (
+          <VideoGrid 
+            videos={videos} 
+            onVideoPress={(video) => router.push(`/video/${video.id}`)} 
+          />
+        ) : (
+          <View className="items-center justify-center py-12 bg-surface-container-low rounded-3xl border border-surface-container-highest border-dashed">
+            <View className="w-16 h-16 rounded-full bg-surface-container-highest items-center justify-center mb-4">
+              <Grid size={24} color="#666" />
+            </View>
+            <Text className="text-white font-headline text-lg mb-2">No sequences found</Text>
+            <Text className="text-gray-500 font-body text-center px-8 text-sm">
+              Tap the creation node to start capturing visuals.
+            </Text>
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#070707',
-  },
-  content: {
-    padding: 20,
-    paddingTop: 56,
-    paddingBottom: 120,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#070707',
-  },
-  authHero: {
-    borderRadius: 28,
-    padding: 22,
-    backgroundColor: '#101010',
-    borderWidth: 1,
-    borderColor: '#242424',
-  },
-  authEyebrow: {
-    color: '#ff8f87',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-  },
-  authTitle: {
-    color: '#fff',
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '800',
-    marginTop: 12,
-  },
-  authSubtitle: {
-    color: '#979797',
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
-  },
-  authCard: {
-    marginTop: 18,
-    borderRadius: 24,
-    padding: 18,
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#242424',
-  },
-  authCardTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 14,
-  },
-  input: {
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#2b2b2b',
-    color: '#fff',
-    fontSize: 15,
-    marginBottom: 12,
-  },
-  primaryButton: {
-    borderRadius: 16,
-    paddingVertical: 15,
-    alignItems: 'center',
-    backgroundColor: '#FF3B30',
-    marginTop: 8,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  switchText: {
-    color: '#9a9a9a',
-    textAlign: 'center',
-    marginTop: 16,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  profileHeader: {
-    borderRadius: 28,
-    padding: 22,
-    backgroundColor: '#101010',
-    borderWidth: 1,
-    borderColor: '#242424',
-  },
-  profileTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    backgroundColor: '#FF3B30',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 34,
-    fontWeight: '800',
-  },
-  headerActions: {
-    alignItems: 'flex-end',
-    gap: 10,
-  },
-  secondaryButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: '#1f1f1f',
-    borderWidth: 1,
-    borderColor: '#303030',
-  },
-  secondaryButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  bellButton: {
-    minWidth: 88,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: '#1f1f1f',
-    borderWidth: 1,
-    borderColor: '#303030',
-  },
-  bellButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -4,
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FF3B30',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  profileName: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '800',
-    marginTop: 18,
-  },
-  profileBio: {
-    color: '#c6c6c6',
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
-  },
-  profileEmail: {
-    color: '#878787',
-    fontSize: 13,
-    marginTop: 8,
-  },
-  statRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 18,
-  },
-  statPill: {
-    minWidth: '48%',
-    borderRadius: 18,
-    padding: 14,
-    backgroundColor: '#171717',
-    borderWidth: 1,
-    borderColor: '#252525',
-  },
-  statValue: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  statLabel: {
-    color: '#999',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 28,
-    marginBottom: 14,
-  },
-  analyticsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  analyticsCard: {
-    width: '48%',
-    borderRadius: 20,
-    padding: 16,
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#242424',
-  },
-  analyticsValue: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  analyticsLabel: {
-    color: '#999',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 6,
-  },
-  topVideoCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#242424',
-    marginBottom: 12,
-  },
-  topVideoTitle: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-    maxWidth: 230,
-  },
-  topVideoStats: {
-    color: '#9a9a9a',
-    fontSize: 12,
-    marginTop: 6,
-  },
-  topVideoRate: {
-    color: '#ffb0a8',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  logoutButton: {
-    marginTop: 28,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: '#242424',
-  },
-  logoutButtonText: {
-    color: '#FF3B30',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-});

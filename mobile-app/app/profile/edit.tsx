@@ -1,24 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { router } from 'expo-router';
-import ScreenHeader from '@/components/ScreenHeader';
-import { useAuth } from '@/contexts/AuthContext';
-import * as api from '@/services/api';
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
+import ScreenHeader from "@/components/ScreenHeader";
+import { useAuth } from "@/contexts/AuthContext";
+import * as api from "@/services/api";
+import { Save, User } from "lucide-react-native";
 
 export default function EditProfileScreen() {
   const { refreshProfile, updateLocalUser } = useAuth();
-  const [username, setUsername] = useState('');
-  const [bio, setBio] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const [username, setUsername] = useState("");
+  const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -26,17 +18,17 @@ export default function EditProfileScreen() {
     void api
       .getMyProfile()
       .then((profile) => {
-        setUsername(profile.username || '');
-        setBio(profile.bio || '');
-        setAvatarUrl(profile.avatarUrl || '');
+        setUsername(profile.username || "");
+        setBio(profile.bio || "");
+        setAvatarUrl(profile.avatarUrl || "");
       })
-      .catch((error) => console.error('Error loading editable profile:', error))
+      .catch((error) => console.error("Error loading editable profile:", error))
       .finally(() => setLoading(false));
   }, []);
 
   const handleSave = async () => {
     if (!username.trim()) {
-      Alert.alert('Missing username', 'Username cannot be empty.');
+      Alert.alert("System failure", "Handle required for identification.");
       return;
     }
 
@@ -55,8 +47,8 @@ export default function EditProfileScreen() {
       });
       await refreshProfile();
       router.back();
-    } catch (error: any) {
-      Alert.alert('Unable to save profile', error.response?.data?.error || 'Please try again.');
+    } catch (error) {
+      Alert.alert("System failure", "Connection lost.");
     } finally {
       setSaving(false);
     }
@@ -64,115 +56,88 @@ export default function EditProfileScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF3B30" />
+      <View className="flex-1 bg-surface items-center justify-center">
+        <ActivityIndicator size="large" color="#ff8c95" />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView className="flex-1 bg-surface">
       <ScreenHeader
-        title="Edit profile"
-        subtitle="Update the public fields used by profile, discover, and notifications."
+        title="Configure Identity"
+        subtitle="Update public holographic network profile"
         onBack={() => router.back()}
+        
       />
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Username</Text>
-        <TextInput
-          style={styles.input}
-          value={username}
-          onChangeText={setUsername}
-          placeholder="Username"
-          placeholderTextColor="#6f6f6f"
-          autoCapitalize="none"
-        />
+      <View className="px-6 py-6 pb-24">
+        <View className="items-center mb-8">
+          <View className="w-24 h-24 rounded-full bg-surface-container-highest items-center justify-center shadow-[0_0_30px_rgba(255,140,149,0.3)] border border-primary/20 mb-4">
+            <User size={40} color="#ff8c95" />
+          </View>
+          <Text className="text-gray-400 font-label text-sm tracking-widest uppercase">
+            Aesthetic Matrix
+          </Text>
+        </View>
 
-        <Text style={styles.label}>Bio</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={bio}
-          onChangeText={setBio}
-          placeholder="Short profile bio"
-          placeholderTextColor="#6f6f6f"
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-        />
+        <View className="bg-surface-container-low rounded-3xl p-6 shadow-2xl relative border border-outline-variant/15">
+          <Text className="text-secondary font-label text-sm uppercase tracking-widest mb-3 ml-2">
+            Network Handle
+          </Text>
+          <TextInput
+            className="bg-surface-container-highest rounded-2xl text-white font-body text-base px-5 py-4 mb-6 border border-outline-variant/15"
+            value={username}
+            onChangeText={setUsername}
+            placeholder="Ghost in the shell"
+            placeholderTextColor="#888"
+            autoCapitalize="none"
+          />
 
-        <Text style={styles.label}>Avatar URL</Text>
-        <TextInput
-          style={styles.input}
-          value={avatarUrl}
-          onChangeText={setAvatarUrl}
-          placeholder="https://..."
-          placeholderTextColor="#6f6f6f"
-          autoCapitalize="none"
-        />
+          <Text className="text-secondary font-label text-sm uppercase tracking-widest mb-3 ml-2">
+            Bio-Metric Summary
+          </Text>
+          <TextInput
+            className="bg-surface-container-highest rounded-2xl text-white font-body text-base px-5 py-4 mb-6 border border-outline-variant/15 min-h-[120px]"
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Link data stream..."
+            placeholderTextColor="#888"
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save changes</Text>}
-        </TouchableOpacity>
+          <Text className="text-secondary font-label text-sm uppercase tracking-widest mb-3 ml-2">
+            Visual Payload (URL)
+          </Text>
+          <TextInput
+            className="bg-surface-container-highest rounded-2xl text-white font-body text-base px-5 py-4 mb-8 border border-outline-variant/15"
+            value={avatarUrl}
+            onChangeText={setAvatarUrl}
+            placeholder="https://..."
+            placeholderTextColor="#888"
+            autoCapitalize="none"
+          />
+
+          <TouchableOpacity 
+            className="bg-primary-dim rounded-full py-4 flex-row items-center justify-center relative shadow-[0_4px_20px_rgba(232,0,72,0.4)]"
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Save size={18} color="#fff" className="mr-2" />
+                <Text className="text-white font-label font-bold text-sm tracking-widest uppercase">
+                  Inject Identity
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#070707',
-  },
-  content: {
-    padding: 20,
-    paddingTop: 56,
-    paddingBottom: 120,
-  },
-  center: {
-    flex: 1,
-    backgroundColor: '#070707',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  card: {
-    marginTop: 18,
-    borderRadius: 26,
-    padding: 20,
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#242424',
-  },
-  label: {
-    color: '#f3f3f3',
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  input: {
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#2b2b2b',
-    color: '#fff',
-    fontSize: 15,
-    marginBottom: 16,
-  },
-  textArea: {
-    minHeight: 110,
-  },
-  saveButton: {
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    backgroundColor: '#FF3B30',
-    marginTop: 8,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-});

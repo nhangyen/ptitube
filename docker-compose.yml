@@ -76,12 +76,11 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: video-tunnel
     restart: always
-    # Token should be provided via .env or environment variable
-    # command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
-    # For now, we can run it and wait for manual auth if token not present,
-    # but usually cloudflared works best with a token for unattended docker usage.
-    # Placeholder command to keep container running if no token:
-    command: tunnel --no-autoupdate --url http://backend:8080
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - backend
     networks:
       - video-net
 

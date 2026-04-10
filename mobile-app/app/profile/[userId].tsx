@@ -1,304 +1,236 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import ScreenHeader from '@/components/ScreenHeader';
-import VideoGrid from '@/components/VideoGrid';
-import { useAuth } from '@/contexts/AuthContext';
-import type { ProfileData, VideoItem } from '@/services/api';
-import * as api from '@/services/api';
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import ScreenHeader from "@/components/ScreenHeader";
+import VideoGrid from "@/components/VideoGrid";
+import { useAuth } from "@/contexts/AuthContext";
+import type { ProfileData, VideoItem } from "@/services/api";
+import * as api from "@/services/api";
+import { User, Activity, Shield, Settings, Disc3, AlertTriangle } from "lucide-react-native";
 
 const formatNumber = (num: number = 0) => {
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1)}M`;
-  }
-  if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}K`;
-  }
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
   return `${num}`;
 };
 
-export default function UserProfileScreen() {
-  const params = useLocalSearchParams<{ userId: string }>();
-  const { user } = useAuth();
+export default function ProfileDetailScreen() {
+  const { userId } = useLocalSearchParams<{ userId: string }>();
+  const { user: currentUser } = useAuth();
+  
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [following, setFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"videos" | "liked">("videos");
 
-  const userId = params.userId || '';
-  const isCurrentUser = userId === user?.id;
+  const isCurrentUser = currentUser?.id.toString() === userId;
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const data = await api.getUserProfile(userId);
+      setProfile(data);
+    } catch (error) {
+      console.error("Failed to fetch profile:", error);
+      Alert.alert("System Failure", "Cannot sync profile data");
+    }
+  }, [userId]);
+
+  const fetchVideos = useCallback(async () => {
+    try {
+      const response = await api.getUserVideos(userId);
+      setVideos(response || []);
+    } catch (error) {
+      console.error("Failed to sync sequences:", error);
+    }
+  }, [userId]);
 
   const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [profileData, videoData] = await Promise.all([
-        isCurrentUser ? api.getMyProfile() : api.getUserProfile(userId),
-        isCurrentUser ? api.getMyVideos() : api.getUserVideos(userId),
-      ]);
-      setProfile(profileData);
-      setVideos(videoData);
-      setFollowing(Boolean(profileData.followedByCurrentUser));
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [isCurrentUser, userId]);
+    await Promise.all([fetchProfile(), fetchVideos()]);
+    setLoading(false);
+    setRefreshing(false);
+  }, [fetchProfile, fetchVideos]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    if (userId) {
+      setLoading(true);
+      loadData();
+    }
+  }, [userId, loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    void loadData();
+    loadData();
   };
 
-  const handleFollow = async () => {
-    if (isCurrentUser || !profile) {
-      return;
-    }
-
-    const next = !following;
-    setFollowing(next);
-    setProfile((current) =>
-      current
-        ? {
-            ...current,
-            followedByCurrentUser: next,
-            followerCount: Math.max(0, current.followerCount + (next ? 1 : -1)),
-          }
-        : current
-    );
-
+  const handleFollowToggle = async () => {
+    if (!profile || followLoading) return;
     try {
-      await api.toggleFollow(profile.id);
-    } catch (error: any) {
-      setFollowing(!next);
-      setProfile((current) =>
-        current
-          ? {
-              ...current,
-              followedByCurrentUser: !next,
-              followerCount: Math.max(0, current.followerCount + (!next ? 1 : -1)),
-            }
-          : current
-      );
-      if (error.response?.status === 401) {
-        Alert.alert('Login required', 'Please login to follow this creator.');
-      }
+      setFollowLoading(true);
+      await api.toggleFollow(userId);
+      await fetchProfile();
+    } catch (error) {
+      console.error("Action denied:", error);
+      Alert.alert("System Failure", "Action denied");
+    } finally {
+      setFollowLoading(false);
     }
   };
 
-  const handleOpenConnections = (type: 'followers' | 'following') => {
-    if (!userId) {
-      return;
-    }
-
-    router.push(`/profile/${userId}/${type}` as never);
-  };
-
-  const openVideo = (video: VideoItem) => {
-    const repostedByQuery = video.entryType === 'repost' && video.repostedBy?.id
-      ? `?repostedByUserId=${video.repostedBy.id}`
-      : '';
-    router.push(`/video/${video.id}${repostedByQuery}` as never);
-  };
-
-  if (loading) {
+  if (loading && !refreshing) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF3B30" />
+      <View className="flex-1 bg-surface items-center justify-center">
+        <ActivityIndicator size="large" color="#ff8c95" />
       </View>
     );
   }
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF3B30" />}
-    >
-      <ScreenHeader
-        title={isCurrentUser ? 'My profile' : `@${profile?.username || 'creator'}`}
-        subtitle={isCurrentUser ? 'Your public profile and uploads.' : 'Profile details and creator uploads.'}
-        onBack={() => router.back()}
-        rightSlot={
-          isCurrentUser ? (
-            <TouchableOpacity onPress={() => router.push('/profile/edit' as never)}>
-              <Text style={styles.linkText}>Edit</Text>
-            </TouchableOpacity>
-          ) : null
-        }
-      />
-
-      <View style={styles.heroCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(profile?.username || 'U').slice(0, 1).toUpperCase()}</Text>
-        </View>
-        <Text style={styles.username}>@{profile?.username}</Text>
-        {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
-
-        <View style={styles.statRow}>
-          <TouchableOpacity
-            style={styles.statCard}
-            activeOpacity={0.85}
-            onPress={() => handleOpenConnections('followers')}
-          >
-            <Text style={styles.statValue}>{formatNumber(profile?.followerCount)}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.statCard}
-            activeOpacity={0.85}
-            onPress={() => handleOpenConnections('following')}
-          >
-            <Text style={styles.statValue}>{formatNumber(profile?.followingCount)}</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </TouchableOpacity>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{formatNumber(profile?.videoCount)}</Text>
-            <Text style={styles.statLabel}>Videos</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{formatNumber(profile?.totalLikes)}</Text>
-            <Text style={styles.statLabel}>Likes</Text>
-          </View>
-        </View>
-
-        {!isCurrentUser ? (
-          <TouchableOpacity style={[styles.followButton, following && styles.followingButton]} onPress={handleFollow}>
-            <Text style={styles.followButtonText}>{following ? 'Following' : 'Follow'}</Text>
-          </TouchableOpacity>
-        ) : null}
+  if (!profile) {
+    return (
+      <View className="flex-1 bg-surface items-center justify-center p-6">
+        <AlertTriangle size={64} color="#e80048" className="mb-6 opacity-80" />
+        <Text className="text-3xl font-display font-bold text-primary mb-2">User Lost</Text>
+        <Text className="text-base font-body text-gray-400 text-center">
+          The requested profile could not be found in the network.
+        </Text>
       </View>
+    );
+  }
 
-      <Text style={styles.sectionTitle}>Video grid</Text>
-      <VideoGrid
-        videos={videos}
-        onVideoPress={openVideo}
-        emptyTitle="No public videos"
-        emptySubtitle="This creator has not published any active videos yet."
-      />
-    </ScrollView>
+  const p = profile as any;
+
+  return (
+    <View className="flex-1 bg-surface">
+      <ScreenHeader title={profile.username}  />
+      
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff8c95" />}
+        className="flex-1"
+      >
+        <View className="pt-24 px-6 pb-8 items-center bg-surface-container-low shadow-xl">
+          <View className="w-24 h-24 rounded-full bg-surface-container-highest items-center justify-center mb-4 shadow-[0_0_30px_rgba(255,140,149,0.3)]">
+            <User size={40} color="#ff8c95" />
+          </View>
+          
+          <Text className="text-3xl font-display font-bold text-white mb-2">@{profile.username}</Text>
+          
+          <View className="flex-row items-center gap-x-3 mb-8 bg-surface-container-high px-5 py-2 rounded-2xl">
+            {p.role === "admin" || p.role === "moderator" ? (
+              <View className="flex-row items-center bg-primary-dim/20 px-3 py-1 rounded-full">
+                <Shield size={12} color="#ff8c95" className="mr-1" />
+                <Text className="text-xs font-label text-primary">{p.role.toUpperCase()}</Text>
+              </View>
+            ) : null}
+            <View className="flex-row items-center bg-secondary/10 px-3 py-1 rounded-full">
+              <Activity size={12} color="#29fcf3" className="mr-1" />
+              <Text className="text-[10px] font-label text-secondary uppercase tracking-widest">Active</Text>
+            </View>
+          </View>
+
+          <View className="flex-row w-full justify-between px-6 mb-8">
+            <TouchableOpacity className="items-center" onPress={() => router.push(`/profile/${userId}/followers`)}>
+              <Text className="text-2xl font-headline font-bold text-white">{formatNumber(profile.followerCount)}</Text>
+              <Text className="text-xs font-label text-gray-500 uppercase tracking-widest mt-1">Followers</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity className="items-center" onPress={() => router.push(`/profile/${userId}/following`)}>
+              <Text className="text-2xl font-headline font-bold text-white">{formatNumber(profile.followingCount)}</Text>
+              <Text className="text-xs font-label text-gray-500 uppercase tracking-widest mt-1">Following</Text>
+            </TouchableOpacity>
+
+            <View className="items-center">
+              <Text className="text-2xl font-headline font-bold text-tertiary">{formatNumber(profile.totalLikes)}</Text>
+              <Text className="text-xs font-label text-gray-500 uppercase tracking-widest mt-1">Likes</Text>
+            </View>
+          </View>
+
+          {!isCurrentUser && (
+            <TouchableOpacity
+              onPress={handleFollowToggle}
+              disabled={followLoading}
+              activeOpacity={0.8}
+              className={`w-full py-4 rounded-full flex-row items-center justify-center ${
+                p.followedByCurrentUser ? "bg-surface-container-highest" : "bg-primary-dim shadow-[0_4px_20px_rgba(232,0,72,0.4)]"
+              }`}
+            >
+              {followLoading ? (
+                <ActivityIndicator size="small" color={p.followedByCurrentUser ? "#ff8c95" : "#fff"} />
+              ) : (
+                <>
+                  <User size={18} color={p.followedByCurrentUser ? "#ff8c95" : "#fff"} className="mr-2" />
+                  <Text className={`font-label font-bold text-sm tracking-widest uppercase ${
+                    p.followedByCurrentUser ? "text-primary" : "text-white"
+                  }`}>
+                    {p.followedByCurrentUser ? "Unlink" : "Connect"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {isCurrentUser && (
+            <TouchableOpacity
+              onPress={() => router.push("/profile/edit")}
+              className="w-full py-4 rounded-full bg-surface border border-outline-variant/15 flex-row items-center justify-center"
+            >
+              <Settings size={18} color="#ff8c95" className="mr-2" />
+              <Text className="font-label font-bold text-sm text-primary tracking-widest uppercase">
+                Configure Identity
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View className="pt-6">
+          <View className="flex-row px-4 mb-4 gap-2">
+            <TouchableOpacity
+              onPress={() => setActiveTab("videos")}
+              className={`flex-1 py-4 items-center rounded-2xl ${
+                activeTab === "videos" ? "bg-surface-container-high" : "bg-transparent"
+              }`}
+            >
+              <View className="flex-row items-center">
+                <Disc3 size={16} color={activeTab === "videos" ? "#29fcf3" : "#666"} className="mr-2" />
+                <Text className={`font-label tracking-widest uppercase text-xs ${
+                  activeTab === "videos" ? "text-secondary font-bold" : "text-gray-500"
+                }`}>Sequences</Text>
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => setActiveTab("liked")}
+              className={`flex-1 py-4 items-center rounded-2xl ${
+                activeTab === "liked" ? "bg-surface-container-high" : "bg-transparent"
+              }`}
+            >
+              <View className="flex-row items-center">
+                <Activity size={16} color={activeTab === "liked" ? "#ff8c95" : "#666"} className="mr-2" />
+                <Text className={`font-label tracking-widest uppercase text-xs ${
+                  activeTab === "liked" ? "text-primary font-bold" : "text-gray-500"
+                }`}>Liked Nodes</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          <View className="min-h-[400px]">
+            {activeTab === "videos" ? (
+              <VideoGrid 
+                videos={videos} 
+                onVideoPress={(video) => router.push(`/video/${video.id}` as never)} 
+                emptyTitle="No Output"
+                emptySubtitle="User has not broadcasted sequences yet."
+              />
+            ) : (
+              <View className="flex-1 items-center justify-center pt-20">
+                <Text className="font-headline text-lg text-gray-500 mb-2">Restricted Payload</Text>
+                <Text className="font-body text-sm text-gray-600">Liked sequences are private.</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#070707',
-  },
-  content: {
-    padding: 20,
-    paddingTop: 56,
-    paddingBottom: 120,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#070707',
-  },
-  linkText: {
-    color: '#ff8f87',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  heroCard: {
-    marginTop: 18,
-    borderRadius: 28,
-    padding: 22,
-    backgroundColor: '#101010',
-    borderWidth: 1,
-    borderColor: '#242424',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 94,
-    height: 94,
-    borderRadius: 47,
-    backgroundColor: '#FF3B30',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 38,
-    fontWeight: '800',
-  },
-  username: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '800',
-    marginTop: 16,
-  },
-  bio: {
-    color: '#c4c4c4',
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  statRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    width: '100%',
-    marginTop: 18,
-  },
-  statCard: {
-    width: '48%',
-    borderRadius: 18,
-    padding: 14,
-    backgroundColor: '#171717',
-    borderWidth: 1,
-    borderColor: '#252525',
-  },
-  statValue: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  statLabel: {
-    color: '#9b9b9b',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  followButton: {
-    marginTop: 18,
-    width: '100%',
-    borderRadius: 18,
-    paddingVertical: 15,
-    alignItems: 'center',
-    backgroundColor: '#FF3B30',
-  },
-  followingButton: {
-    backgroundColor: '#222',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  followButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 28,
-    marginBottom: 14,
-  },
-});

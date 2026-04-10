@@ -4,7 +4,6 @@ import {
   Dimensions,
   FlatList,
   RefreshControl,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -39,6 +38,50 @@ const resolveVideoUri = (item: VideoItem) => {
     return item.videoUrl;
   }
   return `${API_BASE_URL.replace('/api', '')}${item.videoUrl}`;
+};
+
+const FeedItemInfo = ({ item }: { item: VideoItem }) => {
+  const [expanded, setExpanded] = useState(false);
+  const tags = item.hashtags?.map((t) => typeof t === 'string' ? t : (t as any).name) || [];
+  const hasMore = (item.description && item.description.length > 40) || (item.title && item.title.length > 30) || tags.length > 2;
+
+  return (
+    <View className="absolute left-4 right-20 bottom-[130px]">
+      {item.entryType === 'repost' && item.repostedBy ? (
+        <View className="self-start flex-row items-center gap-2 bg-tertiary rounded-full px-3 py-1.5 mb-3">
+          <Ionicons name="repeat" size={14} color="#23020f" />
+          <Text className="text-surface text-xs font-label">@{item.repostedBy.username} reposted</Text>
+        </View>
+      ) : null}
+      <TouchableOpacity onPress={() => router.push(`/profile/${item.user.id}` as never)}>
+        <Text className="text-white text-xl font-headline mb-2 font-bold" numberOfLines={1}>@{item.user?.username || 'user'}</Text>
+      </TouchableOpacity>
+      
+      {item.title ? (
+        <Text className="text-white font-label mb-2 text-sm leading-relaxed" numberOfLines={expanded ? undefined : 1}>{item.title}</Text>
+      ) : null}
+      
+      {item.description ? (
+        <Text className="text-white/80 text-sm font-body leading-tight mb-2" numberOfLines={expanded ? undefined : 1}>
+          {item.description}
+        </Text>
+      ) : null}
+
+      {tags.length > 0 && (
+        <View className="flex-row items-start">
+          <View className="flex-1">
+            <HashtagChips hashtags={expanded ? tags : tags.slice(0, 2)} compact />
+          </View>
+        </View>
+      )}
+      
+      {hasMore && (
+        <TouchableOpacity onPress={() => setExpanded(!expanded)} className="mt-1 self-start bg-black/40 px-3 py-1 rounded-full border border-white/10">
+          <Text className="text-white/90 font-label text-xs font-bold">{expanded ? 'Ẩn bớt' : 'Xem thêm'}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 };
 
 export default function FeedScreen() {
@@ -272,9 +315,8 @@ export default function FeedScreen() {
     const canPlay = isFocused && isCurrentVideo && !isPaused;
 
     return (
-
-      <View style={[styles.videoCard, { height: containerHeight }]}>
-        <TouchableOpacity style={styles.videoTouchable} activeOpacity={1} onPress={togglePlayPause}>
+      <View style={{ height: containerHeight, width }} className="bg-surface relative">
+        <TouchableOpacity className="flex-1" activeOpacity={1} onPress={togglePlayPause}>
           {shouldMountVideo ? (
             <Video
               ref={(ref) => {
@@ -282,7 +324,7 @@ export default function FeedScreen() {
                 else delete videoRefs.current[item.id];
               }}
               source={{ uri: resolveVideoUri(item) }}
-              style={styles.video}
+              style={{ width: "100%", height: "100%" }}
               resizeMode={ResizeMode.COVER}
               isLooping
               shouldPlay={canPlay}
@@ -295,73 +337,59 @@ export default function FeedScreen() {
               }}
             />
           ) : (
-            <View style={styles.videoPlaceholder} />
+            <View className="flex-1 bg-surface-container-low" />
           )}
 
           <LinearGradient
             colors={['transparent', 'rgba(35, 2, 15, 0.4)', 'rgba(35, 2, 15, 0.8)', '#23020f']}
             locations={[0, 0.5, 0.8, 1]}
-            style={styles.bottomGradient}
-            pointerEvents="none"
+              style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "40%", justifyContent: "flex-end", paddingHorizontal: 16, paddingBottom: 140 }}
+              pointerEvents="none"
+            />
 
-          />
-
-          <View style={styles.contentOverlay}>
-            {item.entryType === 'repost' && item.repostedBy ? (
-              <View style={styles.repostBadge}>
-                <Ionicons name="repeat" size={12} color="#23020f" />
-                <Text style={styles.repostBadgeText}>@{item.repostedBy.username} reposted</Text>
-              </View>
-            ) : null}
-            <TouchableOpacity onPress={() => router.push(`/profile/${item.user.id}` as never)}>
-              <Text style={styles.usernameText} numberOfLines={1}>@{item.user?.username || 'user'}</Text>
-            </TouchableOpacity>
-            <Text style={styles.titleText} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.descriptionText} numberOfLines={2}>
-              {item.description}
-            </Text>
-            <HashtagChips hashtags={item.hashtags?.map((t) => typeof t === 'string' ? t : (t as any).name) || []} />
-          </View>
+          <FeedItemInfo item={item} />
         </TouchableOpacity>
 
-        <BlurView intensity={70} tint="dark" style={styles.topControlMuteContainer}>
-          <TouchableOpacity style={styles.controlButtonList} onPress={toggleMute}>
-            <Ionicons name={isMuted ? 'volume-mute' : 'volume-medium'} size={20} color="#fff" />
+        <BlurView intensity={20} tint="dark" style={{position:"absolute", top:64, right:24, borderRadius:9999, overflow:"hidden", width:48, height:48}}>
+          <TouchableOpacity className="w-12 h-12 justify-center items-center" onPress={toggleMute}>
+            <Ionicons name={isMuted ? 'volume-mute' : 'volume-medium'} size={24} color="#29fcf3" />
           </TouchableOpacity>
         </BlurView>
 
         {isPaused && isCurrentVideo && (
-          <View style={styles.pauseIndicatorContainer} pointerEvents="none">
-            <BlurView intensity={70} tint="dark" style={styles.pauseIndicatorWrap}>
-              <Ionicons name="play" size={38} color="#ff8c95" style={{ marginLeft: 6 }} />
+          <View className="absolute top-1/2 left-1/2 -translate-x-10 -translate-y-10 rounded-full overflow-hidden" pointerEvents="none">
+            <BlurView intensity={20} tint="dark" style={{width:80, height:80, justifyContent:"center", alignItems:"center", borderRadius:9999, overflow:"hidden"}}>
+              <Ionicons name="play" size={44} color="#ff8c95" style={{ marginLeft: 6 }} />
             </BlurView>
           </View>
         )}
 
-        <SocialActions
-          videoId={item.id}
-          userId={item.user?.id || ''}
-          username={item.user?.username || 'user'}
-          stats={item.stats || DEFAULT_STATS}
-          isLiked={Boolean(item.likedByCurrentUser)}
-          isFollowing={Boolean(item.user?.followedByCurrentUser)}
-          isReposted={Boolean(item.currentUserHasReposted)}
-          onLikeChange={(liked) => handleLikeChange(item.id, liked)}
-          onFollowChange={(following) => handleFollowChange(item.user?.id || '', following)}
-          onRepostChange={(reposted) => handleRepostChange(item.id, reposted)}
-          onCommentPress={() => {
-            setSelectedVideoId(item.id);
-            setShowComments(true);
-          }}
-          onProfilePress={() => router.push(`/profile/${item.user.id}` as never)}
-        />
+        <View className="absolute bottom-[135px] right-2 items-center">
+          <SocialActions
+            videoId={item.id}
+            userId={item.user?.id || ''}
+            username={item.user?.username || 'user'}
+            stats={item.stats || DEFAULT_STATS}
+            isLiked={Boolean(item.likedByCurrentUser)}
+            isFollowing={Boolean(item.user?.followedByCurrentUser)}
+            isReposted={Boolean(item.currentUserHasReposted)}
+            onLikeChange={(liked) => handleLikeChange(item.id, liked)}
+            onFollowChange={(following) => handleFollowChange(item.user?.id || '', following)}
+            onRepostChange={(reposted) => handleRepostChange(item.id, reposted)}
+            onCommentPress={() => {
+              setSelectedVideoId(item.id);
+              setShowComments(true);
+            }}
+            onProfilePress={() => router.push(`/profile/${item.user.id}` as never)}
+          />
+        </View>
       </View>
     );
   };
 
   if (loading) {
     return (
-      <View style={styles.loaderCenter}>
+      <View className="flex-1 justify-center items-center bg-surface">
         <ActivityIndicator size="large" color="#ff8c95" />
       </View>
     );
@@ -369,10 +397,10 @@ export default function FeedScreen() {
 
   if (videos.length === 0) {
     return (
-      <View style={styles.loaderCenter}>
-        <Text style={styles.infoCenterText}>No videos found</Text>
-        <TouchableOpacity style={styles.refreshControlBtn} onPress={handleRefresh}>
-          <Text style={styles.refreshControlText}>Refresh</Text>
+      <View className="flex-1 justify-center items-center bg-surface">
+        <Text className="text-gray-300 font-body text-base mb-6">No videos found</Text>
+        <TouchableOpacity className="h-12 px-6 rounded-full bg-primary justify-center items-center shadow-lg border border-outline-variant/15" onPress={handleRefresh}>
+          <Text className="text-on-primary font-label text-base">Refresh</Text>
         </TouchableOpacity>
       </View>
     );
@@ -380,7 +408,7 @@ export default function FeedScreen() {
 
   return (
     <View
-      style={styles.mainContainer}
+      className="flex-1 bg-surface"
       onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
     >
       <FlatList
@@ -418,128 +446,3 @@ export default function FeedScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    backgroundColor: '#23020f',
-  },
-  loaderCenter: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#23020f',
-  },
-  infoCenterText: {
-    color: '#e8e8e8',
-    fontSize: 16,
-    marginBottom: 24,
-  },
-  refreshControlBtn: {
-    height: 48,
-    paddingHorizontal: 24,
-    borderRadius: 48,
-    backgroundColor: '#ff8c95',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  refreshControlText: {
-    color: '#64001a',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  videoCard: {
-    width,
-    height,
-    backgroundColor: '#23020f',
-    position: 'relative',
-  },
-  videoTouchable: {
-    flex: 1,
-  },
-  video: {
-    width: '100%',
-    height: '100%',
-  },
-  videoPlaceholder: {
-    flex: 1,
-    backgroundColor: '#2b0414',
-  },
-  bottomGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '40%',
-  },
-  topControlMuteContainer: {
-    position: 'absolute',
-    top: 60,
-    right: 24,
-    borderRadius: 48,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(74, 17, 41, 0.7)',
-  },
-  controlButtonList: {
-    height: 48,
-    width: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pauseIndicatorContainer: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -42 }, { translateY: -42 }],
-    borderRadius: 84,
-    overflow: 'hidden',
-  },
-  pauseIndicatorWrap: {
-    width: 84,
-    height: 84,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(62, 13, 33, 0.7)',
-  },
-  contentOverlay: {
-    position: 'absolute',
-    left: 24,
-    right: 84,
-    bottom: 30,
-  },
-  repostBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#f3ffca',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 10,
-  },
-  repostBadgeText: {
-    color: '#23020f',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  usernameText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  titleText: {
-    color: '#fff',
-    fontWeight: '600',
-    marginBottom: 8,
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  descriptionText: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 10,
-  },
-});
