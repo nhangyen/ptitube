@@ -39,6 +39,7 @@ import { exportVideo, EditorState } from '@/services/ffmpegService';
 import { MusicTrack } from '@/constants/MusicLibrary';
 
 type EditorTab = 'trim' | 'music' | 'speed' | 'text' | 'filter';
+type PreviewFilterLayer = { backgroundColor: string; opacity: number };
 
 const EDITOR_TABS: { key: EditorTab; icon: string; label: string }[] = [
   { key: 'trim', icon: '✂️', label: 'Cắt xén' },
@@ -47,6 +48,38 @@ const EDITOR_TABS: { key: EditorTab; icon: string; label: string }[] = [
   { key: 'text', icon: '✏️', label: 'Chữ' },
   { key: 'filter', icon: '🎨', label: 'Lọc màu' },
 ];
+
+const PREVIEW_FILTER_VIDEO_OPACITY: Record<string, number> = {
+  grayscale: 0.82,
+  vivid: 0.96,
+  autumn: 0.94,
+  vintage: 0.92,
+  cool: 0.95,
+};
+
+const PREVIEW_FILTER_LAYERS: Record<string, PreviewFilterLayer[]> = {
+  grayscale: [
+    { backgroundColor: 'rgba(128,128,128,0.26)', opacity: 1 },
+    { backgroundColor: 'rgba(255,255,255,0.08)', opacity: 1 },
+    { backgroundColor: 'rgba(0,0,0,0.12)', opacity: 1 },
+  ],
+  vivid: [
+    { backgroundColor: 'rgba(255,106,92,0.12)', opacity: 1 },
+    { backgroundColor: 'rgba(255,0,85,0.04)', opacity: 1 },
+  ],
+  autumn: [
+    { backgroundColor: 'rgba(214,133,53,0.18)', opacity: 1 },
+    { backgroundColor: 'rgba(90,42,0,0.08)', opacity: 1 },
+  ],
+  vintage: [
+    { backgroundColor: 'rgba(210,178,128,0.22)', opacity: 1 },
+    { backgroundColor: 'rgba(62,44,22,0.08)', opacity: 1 },
+  ],
+  cool: [
+    { backgroundColor: 'rgba(94,162,214,0.16)', opacity: 1 },
+    { backgroundColor: 'rgba(214,240,255,0.04)', opacity: 1 },
+  ],
+};
 
 export default function EditorScreen() {
   const router = useRouter();
@@ -271,6 +304,8 @@ export default function EditorScreen() {
   }
 
   // ===== RENDER =====
+  const previewFilterLayers = PREVIEW_FILTER_LAYERS[selectedFilterId] || [];
+  const previewVideoOpacity = PREVIEW_FILTER_VIDEO_OPACITY[selectedFilterId] ?? 1;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -371,18 +406,6 @@ export default function EditorScreen() {
         </View>
       )}
 
-      {/* Trimmer Modal */}
-      {showTrimmer && (
-        <View style={StyleSheet.absoluteFill}>
-          <VideoTrimmer
-            videoUri={videoUri}
-            onTrimComplete={handleTrimComplete}
-            onCancel={() => setShowTrimmer(false)}
-            maxDuration={60}
-          />
-        </View>
-      )}
-
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose} style={styles.headerBtn}>
@@ -403,7 +426,7 @@ export default function EditorScreen() {
         <Video
           ref={videoRef}
           source={{ uri: videoUri }}
-          style={styles.video}
+          style={[styles.video, { opacity: previewVideoOpacity }]}
           resizeMode={ResizeMode.CONTAIN}
           shouldPlay={false}
           isLooping={true}
@@ -419,6 +442,20 @@ export default function EditorScreen() {
             containerHeight={videoPreviewHeight}
           />
         )}
+
+        {previewFilterLayers.map((layer, index) => (
+          <View
+            key={`${selectedFilterId}-${index}`}
+            pointerEvents="none"
+            style={[
+              styles.filterPreviewLayer,
+              {
+                backgroundColor: layer.backgroundColor,
+                opacity: layer.opacity,
+              },
+            ]}
+          />
+        ))}
 
         {/* Play/Pause button */}
         <TouchableOpacity style={styles.playOverlay} onPress={togglePlay}>
@@ -477,6 +514,17 @@ export default function EditorScreen() {
       >
         {renderActiveTab()}
       </KeyboardAvoidingView>
+
+      {showTrimmer && (
+        <View style={styles.trimmerOverlay}>
+          <VideoTrimmer
+            videoUri={videoUri}
+            onTrimComplete={handleTrimComplete}
+            onCancel={() => setShowTrimmer(false)}
+            maxDuration={60}
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -551,6 +599,9 @@ const styles = StyleSheet.create({
   video: {
     width: '100%',
     height: '100%',
+  },
+  filterPreviewLayer: {
+    ...StyleSheet.absoluteFillObject,
   },
   playOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -682,6 +733,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
+  },
+  trimmerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 1100,
+    elevation: 20,
   },
   exportModal: {
     backgroundColor: '#1a1a1a',

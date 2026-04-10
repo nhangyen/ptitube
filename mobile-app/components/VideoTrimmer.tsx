@@ -38,7 +38,7 @@ export default function VideoTrimmer({
     if (duration > 0 && endTime === 0) {
       setEndTime(Math.min(duration, maxDuration));
     }
-  }, [duration, maxDuration]);
+  }, [duration, endTime, maxDuration]);
 
   useEffect(() => {
     const currentVideo = videoRef.current;
@@ -59,19 +59,26 @@ export default function VideoTrimmer({
       setIsPlaying(status.isPlaying);
 
       // Loop within trim range
-      if (status.positionMillis / 1000 >= endTime) {
+      if (endTime > startTime && status.positionMillis / 1000 >= endTime) {
         videoRef.current?.setPositionAsync(startTime * 1000);
       }
     }
   };
 
   const handleStartChange = (value: number) => {
-    const newStart = Math.min(value, endTime - 1);
+    if (duration <= 0) {
+      return;
+    }
+    const maxStart = Math.max(endTime - 1, 0);
+    const newStart = Math.min(value, maxStart);
     setStartTime(newStart);
     videoRef.current?.setPositionAsync(newStart * 1000);
   };
 
   const handleEndChange = (value: number) => {
+    if (duration <= 0) {
+      return;
+    }
     const maxEnd = Math.min(startTime + maxDuration, duration);
     const newEnd = Math.max(value, startTime + 1);
     setEndTime(Math.min(newEnd, maxEnd));
@@ -94,6 +101,7 @@ export default function VideoTrimmer({
 
   const trimDuration = endTime - startTime;
   const isValidDuration = trimDuration >= 1 && trimDuration <= maxDuration;
+  const timelineDuration = duration > 0 ? duration : 1;
 
   const handleConfirm = () => {
     if (!isValidDuration) {
@@ -119,7 +127,7 @@ export default function VideoTrimmer({
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.videoContainer, { maxHeight: previewHeight }]}>
+      <View style={[styles.videoContainer, { height: previewHeight }]}>
         {isLoading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#FF3B30" />
@@ -154,12 +162,13 @@ export default function VideoTrimmer({
           <Slider
             style={styles.slider}
             minimumValue={0}
-            maximumValue={duration}
+            maximumValue={Math.max(duration, 1)}
             value={startTime}
             onValueChange={handleStartChange}
             minimumTrackTintColor="#FF3B30"
             maximumTrackTintColor="#333"
             thumbTintColor="#FF3B30"
+            disabled={duration <= 0}
           />
         </View>
 
@@ -168,12 +177,13 @@ export default function VideoTrimmer({
           <Slider
             style={styles.slider}
             minimumValue={0}
-            maximumValue={duration}
+            maximumValue={Math.max(duration, 1)}
             value={endTime}
             onValueChange={handleEndChange}
             minimumTrackTintColor="#FF3B30"
             maximumTrackTintColor="#333"
             thumbTintColor="#FF3B30"
+            disabled={duration <= 0}
           />
         </View>
 
@@ -183,15 +193,15 @@ export default function VideoTrimmer({
               style={[
                 styles.trimRange,
                 {
-                  left: `${(startTime / duration) * 100}%`,
-                  width: `${((endTime - startTime) / duration) * 100}%`,
+                  left: `${(startTime / timelineDuration) * 100}%`,
+                  width: `${((endTime - startTime) / timelineDuration) * 100}%`,
                 },
               ]}
             />
             <View
               style={[
                 styles.playhead,
-                { left: `${(currentTime / duration) * 100}%` },
+                { left: `${(currentTime / timelineDuration) * 100}%` },
               ]}
             />
           </View>
@@ -228,9 +238,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   videoContainer: {
-    flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 16,
   },
   video: {
     width: '100%',
@@ -257,6 +268,7 @@ const styles = StyleSheet.create({
   trimControls: {
     padding: 20,
     backgroundColor: '#111',
+    flexShrink: 0,
   },
   timeInfo: {
     flexDirection: 'row',
