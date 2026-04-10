@@ -59,7 +59,7 @@ public class RecommendationService {
     @Autowired
     private UserRepository userRepository;
 
-    @Value("${ai.server.url:http://localhost:8000}")
+    @Value("${ai.server.url:http://ai-server:8000}")
     private String aiServerUrl;
 
     private final RestTemplate restTemplate = createRestTemplate();
@@ -323,34 +323,45 @@ public class RecommendationService {
 
     private List<Video> selectFinalVideos(List<Video> aiSorted, List<Video> followedVideos, int size) {
         List<Video> result = new ArrayList<>();
+        Set<UUID> seenIds = new HashSet<>();
 
         // Add followed videos first (they always get included)
-        result.addAll(followedVideos);
+        for (Video v : followedVideos) {
+            if (seenIds.add(v.getId())) {
+                result.add(v);
+            }
+        }
 
         int remainingSlots = size - result.size();
 
         if (!aiSorted.isEmpty() && remainingSlots > 0) {
             // Take top (remainingSlots - 1) from AI sorted (best predictions)
             int topCount = Math.min(remainingSlots - 1, aiSorted.size());
-            if (topCount > 0) {
-                result.addAll(aiSorted.subList(0, topCount));
+            for (int i = 0; i < topCount; i++) {
+                Video v = aiSorted.get(i);
+                if (seenIds.add(v.getId())) {
+                    result.add(v);
+                }
             }
 
             // Take 1 video from near bottom (for content discovery/diversity)
             if (result.size() < size && aiSorted.size() > topCount) {
                 int bottomIndex = Math.max(aiSorted.size() - 2, topCount); // near last
-                result.add(aiSorted.get(bottomIndex));
+                Video v = aiSorted.get(bottomIndex);
+                if (seenIds.add(v.getId())) {
+                    result.add(v);
+                }
             }
         }
 
         // If still not enough, add more from AI sorted
-        while (result.size() < size && result.size() < aiSorted.size() + followedVideos.size()) {
+        if (result.size() < size) {
             for (Video v : aiSorted) {
-                if (!result.contains(v) && result.size() < size) {
+                if (result.size() >= size) break;
+                if (seenIds.add(v.getId())) {
                     result.add(v);
                 }
             }
-            break;
         }
 
         return result;

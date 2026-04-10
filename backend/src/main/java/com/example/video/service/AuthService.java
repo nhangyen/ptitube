@@ -41,6 +41,8 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        int count =(int) userRepository.count();
+        user.setNumericId(count + 1);
         userRepository.save(user);
 
         // Auto-login after register
@@ -68,7 +70,6 @@ public class AuthService {
                 user.getUsername(),
                 user.getEmail(),
                 user.getAvatarUrl(),
-                user.getRole().name()
-        );
+                user.getRole().name());
     }
 }

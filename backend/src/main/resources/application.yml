@@ -28,4 +28,4 @@ minio:
 
 ai:
   server:
-    url: ${AI_SERVER_URL:http://192.168.1.23:8000}
+    url: ${AI_SERVER_URL:http://ai-server:8000}
