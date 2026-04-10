@@ -67,6 +67,8 @@ public class RecommendationService {
     private static final int MIN_FOLLOWED_VIDEOS = 2;
     private static final long NEW_USER_VIEW_THRESHOLD = 20;
     private static final long NEW_USER_DAYS_THRESHOLD = 1;
+    private static final double REPOST_BASE_BOOST = 10.0;
+    private static final double SELF_REPOST_BOOST = 5.0;
 
     // ==================== PUBLIC API ====================
 
@@ -138,7 +140,7 @@ public class RecommendationService {
 
         FeedContext context = buildFeedContext(videos, currentUserId);
         return videos.stream()
-                .map(video -> convertToFeedItem(video, 0, currentUserId, context))
+                .map(video -> convertToFeedItem(FeedCandidate.original(video, 0), currentUserId, context))
                 .collect(Collectors.toList());
     }
 
@@ -199,7 +201,7 @@ public class RecommendationService {
         // Step 7: Convert to feed items
         FeedContext context = buildFeedContext(selectedVideos, userId);
         return selectedVideos.stream()
-                .map(video -> convertToFeedItem(video, 0, userId, context))
+                .map(video -> convertToFeedItem(FeedCandidate.original(video, 0), userId, context))
                 .collect(Collectors.toList());
     }
 
@@ -355,6 +357,20 @@ public class RecommendationService {
 
     // ==================== HELPERS ====================
 
+    private double calculateScore(Video video, FeedContext context) {
+        VideoStats stats = context.statsByVideoId.getOrDefault(video.getId(), createDefaultStats(video.getId()));
+        long likes = stats.getLikeCount() != null ? stats.getLikeCount() : 0;
+        long views = stats.getViewCount() != null ? stats.getViewCount() : 0;
+        long comments = stats.getCommentCount() != null ? stats.getCommentCount() : 0;
+        long reposts = context.repostCountByVideoId.getOrDefault(video.getId(), 0L);
+        // Freshness decay: penalise older videos slightly
+        long hoursOld = video.getCreatedAt() != null
+                ? Math.max(0, ChronoUnit.HOURS.between(video.getCreatedAt(), LocalDateTime.now()))
+                : 0;
+        double freshness = Math.max(0, 168 - hoursOld); // full boost within 7 days
+        return likes * 3.0 + comments * 2.0 + reposts * 4.0 + views * 0.1 + freshness * 0.5;
+    }
+
     private int calculateRange(long value, long[] thresholds) {
         for (int i = thresholds.length - 1; i >= 0; i--) {
             if (value >= thresholds[i]) return i;
@@ -370,7 +386,7 @@ public class RecommendationService {
         }
         FeedContext context = buildFeedContext(videos, currentUserId);
         return videos.stream()
-                .map(video -> convertToFeedItem(video, calculateScore(video, context), currentUserId, context))
+                .map(video -> convertToFeedItem(FeedCandidate.original(video, calculateScore(video, context)), currentUserId, context))
                 .collect(Collectors.toList());
     }
 
