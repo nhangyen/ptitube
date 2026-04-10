@@ -11,7 +11,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,7 +42,18 @@ public class ModerationService {
     private VideoRepository videoRepository;
 
     @Autowired
+    private ReportRepository reportRepository;
+
+    @Autowired
     private UserRepository userRepository;
+
+    public Map<String, Long> getQueueStats() {
+        Map<String, Long> stats = new HashMap<>();
+        stats.put("pending", queueRepository.countByStatus("pending"));
+        stats.put("in_review", queueRepository.countByStatus("in_review"));
+        stats.put("reviewed", queueRepository.countByStatus("reviewed"));
+        return stats;
+    }
 
     public Page<ModerationQueueResponse> getQueue(String status, int page, int size) {
         Page<ModerationQueue> items;
@@ -98,6 +111,60 @@ public class ModerationService {
     }
 
     @Transactional
+    public void approveVideo(UUID queueId, UUID adminId, String reason) {
+        ModerationQueue queue = queueRepository.findById(queueId)
+                .orElseThrow(() -> new RuntimeException("Queue item not found"));
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        queue.setStatus("reviewed");
+        queueRepository.save(queue);
+
+        Video video = queue.getVideo();
+        video.setStatus(VideoStatus.active);
+        videoRepository.save(video);
+
+        ModerationAction action = new ModerationAction();
+        action.setQueue(queue);
+        action.setAdmin(admin);
+        action.setAction("approve");
+        action.setScope("video");
+        action.setReason(reason);
+        actionRepository.save(action);
+    }
+
+    @Transactional
+    public void rejectVideo(UUID queueId, UUID adminId, String reason) {
+        ModerationQueue queue = queueRepository.findById(queueId)
+                .orElseThrow(() -> new RuntimeException("Queue item not found"));
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        queue.setStatus("reviewed");
+        queueRepository.save(queue);
+
+        Video video = queue.getVideo();
+        video.setStatus(VideoStatus.banned);
+        videoRepository.save(video);
+
+        // Auto-resolve related open reports
+        List<Report> openReports = reportRepository.findByVideoId(video.getId())
+                .stream().filter(r -> "open".equals(r.getStatus())).collect(Collectors.toList());
+        for (Report report : openReports) {
+            report.setStatus("resolved");
+            reportRepository.save(report);
+        }
+
+        ModerationAction action = new ModerationAction();
+        action.setQueue(queue);
+        action.setAdmin(admin);
+        action.setAction("reject");
+        action.setScope("video");
+        action.setReason(reason);
+        actionRepository.save(action);
+    }
+
+    @Transactional
     public void addTagToScene(UUID sceneId, UUID tagId, UUID adminId) {
         VideoScene scene = sceneRepository.findById(sceneId)
                 .orElseThrow(() -> new RuntimeException("Scene not found"));
@@ -133,11 +200,14 @@ public class ModerationService {
         resp.setVideoTitle(queue.getVideo().getTitle());
         resp.setVideoThumbnail(queue.getVideo().getThumbnailUrl());
         resp.setUploaderUsername(queue.getVideo().getUser().getUsername());
+        resp.setUploaderId(queue.getVideo().getUser().getId());
         resp.setPriority(queue.getPriority());
         resp.setStatus(queue.getStatus());
         resp.setAssignedTo(queue.getAssignedTo() != null ? queue.getAssignedTo().getUsername() : null);
         resp.setAiJobStatus(queue.getAiJob() != null ? queue.getAiJob().getStatus() : null);
         resp.setSceneCount((int) sceneRepository.countByVideoId(queue.getVideo().getId()));
+        resp.setReportCount(reportRepository.countByVideoId(queue.getVideo().getId()));
+        resp.setVideoStatus(queue.getVideo().getStatus().name());
         resp.setCreatedAt(queue.getCreatedAt());
         return resp;
     }

@@ -13,4 +13,5 @@ public interface ModerationQueueRepository extends JpaRepository<ModerationQueue
     Page<ModerationQueue> findAllByOrderByCreatedAtDesc(Pageable pageable);
     List<ModerationQueue> findByVideoId(UUID videoId);
     List<ModerationQueue> findByAssignedToId(UUID userId);
+    long countByStatus(String status);
 }

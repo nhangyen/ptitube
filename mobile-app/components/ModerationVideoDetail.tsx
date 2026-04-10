@@ -6,19 +6,29 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
+  Image,
+  TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '@/services/api';
 import SceneTagEditor from './SceneTagEditor';
+import { ArrowLeft, User, Gauge, Bot, Film, Flag, CheckCircle2, XCircle, Shield, AlertTriangle } from 'lucide-react-native';
+
+const TAB_BAR_HEIGHT = 60;
 
 interface QueueItem {
   queueId: string;
   videoId: string;
   videoTitle: string;
+  videoThumbnail: string | null;
   uploaderUsername: string;
   priority: string;
   status: string;
   aiJobStatus: string | null;
   sceneCount: number;
+  reportCount: number;
+  videoStatus: string;
 }
 
 interface TagData {
@@ -43,14 +53,19 @@ interface SceneData {
 interface Props {
   item: QueueItem;
   onBack: () => void;
-  onMarkReviewed: () => void;
 }
 
-export default function ModerationVideoDetail({ item, onBack, onMarkReviewed }: Props) {
+export default function ModerationVideoDetail({ item, onBack }: Props) {
+  const insets = useSafeAreaInsets();
+  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom;
   const [scenes, setScenes] = useState<SceneData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedScene, setSelectedScene] = useState<SceneData | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState(item.status);
   const selectedSceneIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -87,11 +102,67 @@ export default function ModerationVideoDetail({ item, onBack, onMarkReviewed }: 
     setAssigning(true);
     try {
       await api.assignModerationItem(item.queueId);
+      setCurrentStatus('in_review');
     } catch (error) {
-      console.error('Failed to assign:', error);
+      Alert.alert('Error', 'Failed to assign item');
     } finally {
       setAssigning(false);
     }
+  };
+
+  const handleApprove = () => {
+    Alert.alert(
+      'Approve Video',
+      'This will make the video visible to all users. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Approve',
+          style: 'default',
+          onPress: async () => {
+            setActionLoading('approve');
+            try {
+              await api.approveVideo(item.queueId, reviewNotes || undefined);
+              Alert.alert('Done', 'Video approved successfully', [{ text: 'OK', onPress: onBack }]);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to approve video');
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReject = () => {
+    if (!reviewNotes.trim()) {
+      Alert.alert('Reason Required', 'Please provide a reason before rejecting.');
+      setShowNotes(true);
+      return;
+    }
+    Alert.alert(
+      'Reject Video',
+      'This will ban the video and resolve all related reports. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading('reject');
+            try {
+              await api.rejectVideo(item.queueId, reviewNotes);
+              Alert.alert('Done', 'Video rejected and banned', [{ text: 'OK', onPress: onBack }]);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to reject video');
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const formatTime = (seconds: number) => {
@@ -100,66 +171,205 @@ export default function ModerationVideoDetail({ item, onBack, onMarkReviewed }: 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getPriorityStyle = (priority: string) => {
+    switch (priority?.toLowerCase()) {
+      case 'urgent': return { color: '#e80048', bg: 'rgba(232,0,72,0.15)' };
+      case 'high': return { color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
+      case 'normal': return { color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' };
+      default: return { color: '#9ca3af', bg: 'rgba(156,163,175,0.15)' };
+    }
+  };
+
+  const isActionable = currentStatus === 'pending' || currentStatus === 'in_review';
+  const flaggedScenes = scenes.filter(s => s.tags.some(t => t.source === 'ai' && (t.confidence ?? 0) >= 0.8));
+  const priorityStyle = getPriorityStyle(item.priority);
+
   return (
     <View style={styles.container}>
+      {/* Top bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.backButton}>Back</Text>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+          <ArrowLeft size={20} color="#ff8c95" />
         </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>{item.videoTitle}</Text>
+        <Text style={styles.title} numberOfLines={1}>{item.videoTitle || 'Untitled'}</Text>
+        {currentStatus === 'reviewed' && (
+          <View style={styles.reviewedBadge}>
+            <CheckCircle2 size={12} color="#29fcf3" />
+            <Text style={styles.reviewedText}>Reviewed</Text>
+          </View>
+        )}
       </View>
 
-      <ScrollView style={styles.content}>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoLabel}>Uploader: <Text style={styles.infoValue}>@{item.uploaderUsername}</Text></Text>
-          <Text style={styles.infoLabel}>Priority: <Text style={styles.infoValue}>{item.priority}</Text></Text>
-          <Text style={styles.infoLabel}>AI Status: <Text style={styles.infoValue}>{item.aiJobStatus || 'N/A'}</Text></Text>
-          <Text style={styles.infoLabel}>Scenes: <Text style={styles.infoValue}>{scenes.length}</Text></Text>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Video preview */}
+        {item.videoThumbnail && (
+          <Image source={{ uri: item.videoThumbnail }} style={styles.videoPreview} resizeMode="cover" />
+        )}
+
+        {/* Info cards */}
+        <View style={styles.infoGrid}>
+          <View style={styles.infoItem}>
+            <User size={14} color="#9ca3af" />
+            <Text style={styles.infoLabel}>Uploader</Text>
+            <Text style={styles.infoValue}>@{item.uploaderUsername}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Gauge size={14} color={priorityStyle.color} />
+            <Text style={styles.infoLabel}>Priority</Text>
+            <View style={[styles.priorityBadge, { backgroundColor: priorityStyle.bg }]}>
+              <Text style={[styles.priorityText, { color: priorityStyle.color }]}>{item.priority}</Text>
+            </View>
+          </View>
+          <View style={styles.infoItem}>
+            <Bot size={14} color="#9ca3af" />
+            <Text style={styles.infoLabel}>AI Status</Text>
+            <Text style={styles.infoValue}>{item.aiJobStatus || 'N/A'}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Film size={14} color="#9ca3af" />
+            <Text style={styles.infoLabel}>Scenes</Text>
+            <Text style={styles.infoValue}>{scenes.length}</Text>
+          </View>
         </View>
 
-        {item.status === 'pending' && (
+        {/* Report warning */}
+        {item.reportCount > 0 && (
+          <View style={styles.reportWarning}>
+            <Flag size={16} color="#e80048" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reportWarningTitle}>{item.reportCount} user report{item.reportCount > 1 ? 's' : ''}</Text>
+              <Text style={styles.reportWarningDesc}>This video has been flagged by the community</Text>
+            </View>
+          </View>
+        )}
+
+        {/* AI flagged scenes summary */}
+        {flaggedScenes.length > 0 && (
+          <View style={styles.aiWarning}>
+            <AlertTriangle size={16} color="#f59e0b" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.aiWarningTitle}>{flaggedScenes.length} scene{flaggedScenes.length > 1 ? 's' : ''} flagged by AI</Text>
+              <Text style={styles.aiWarningDesc}>High-confidence violations detected</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Assign button */}
+        {currentStatus === 'pending' && (
           <TouchableOpacity style={styles.assignButton} onPress={handleAssign} disabled={assigning}>
+            <Shield size={16} color="#fff" />
             <Text style={styles.assignText}>{assigning ? 'Assigning...' : 'Assign to me'}</Text>
           </TouchableOpacity>
         )}
 
+        {/* Scenes section */}
         <Text style={styles.sectionTitle}>Scenes</Text>
 
         {loading ? (
-          <ActivityIndicator size="small" color="#fff" style={{ marginTop: 20 }} />
+          <ActivityIndicator size="small" color="#ff8c95" style={{ marginTop: 20 }} />
         ) : (
           <>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sceneTimeline}>
-              {scenes.map((scene) => (
-                <TouchableOpacity
-                  key={scene.sceneId}
-                  style={[styles.sceneThumb, selectedScene?.sceneId === scene.sceneId && styles.sceneThumbActive]}
-                  onPress={() => setSelectedScene(scene)}>
-                  <Text style={styles.sceneIndex}>#{scene.sceneIndex + 1}</Text>
-                  <Text style={styles.sceneTime}>
-                    {formatTime(scene.startTime)} - {formatTime(scene.endTime)}
-                  </Text>
-                  <Text style={styles.sceneTagCount}>{scene.tags.length} tags</Text>
-                </TouchableOpacity>
-              ))}
+              {scenes.map((scene) => {
+                const isSelected = selectedScene?.sceneId === scene.sceneId;
+                const hasAiFlags = scene.tags.some(t => t.source === 'ai' && (t.confidence ?? 0) >= 0.8);
+                return (
+                  <TouchableOpacity
+                    key={scene.sceneId}
+                    style={[
+                      styles.sceneThumb,
+                      isSelected && styles.sceneThumbActive,
+                      hasAiFlags && !isSelected && styles.sceneThumbFlagged,
+                    ]}
+                    onPress={() => setSelectedScene(scene)}
+                  >
+                    {scene.thumbnailUrl ? (
+                      <Image source={{ uri: scene.thumbnailUrl }} style={styles.sceneImage} />
+                    ) : null}
+                    <View style={styles.sceneInfo}>
+                      <Text style={[styles.sceneIndex, isSelected && styles.sceneIndexActive]}>
+                        #{scene.sceneIndex + 1}
+                      </Text>
+                      <Text style={styles.sceneTime}>
+                        {formatTime(scene.startTime)}-{formatTime(scene.endTime)}
+                      </Text>
+                      <View style={styles.sceneTagRow}>
+                        <Text style={[styles.sceneTagCount, hasAiFlags && { color: '#f59e0b' }]}>
+                          {scene.tags.length} tags
+                        </Text>
+                        {hasAiFlags && <AlertTriangle size={10} color="#f59e0b" />}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
 
+            {/* Scene tag editor */}
             {selectedScene && (
               <SceneTagEditor
                 scene={selectedScene}
-                onTagsChanged={() => {
-                  void fetchScenes(selectedScene.sceneId);
-                }}
+                onTagsChanged={() => void fetchScenes(selectedScene.sceneId)}
               />
             )}
           </>
         )}
+
+        {/* Review notes */}
+        {isActionable && (
+          <View style={styles.notesSection}>
+            <TouchableOpacity style={styles.notesToggle} onPress={() => setShowNotes(!showNotes)}>
+              <Text style={styles.notesToggleText}>{showNotes ? 'Hide notes' : 'Add review notes'}</Text>
+            </TouchableOpacity>
+            {showNotes && (
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Reason for your decision..."
+                placeholderTextColor="#4b5563"
+                value={reviewNotes}
+                onChangeText={setReviewNotes}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            )}
+          </View>
+        )}
+
+        {/* Spacer for action bar + tab bar */}
+        <View style={{ height: isActionable ? 80 + bottomOffset : bottomOffset }} />
       </ScrollView>
 
-      {(item.status === 'pending' || item.status === 'in_review') && (
-        <View style={styles.actionBar}>
-          <TouchableOpacity style={styles.reviewedButton} onPress={onMarkReviewed}>
-            <Text style={styles.actionText}>Mark Reviewed</Text>
+      {/* Action bar */}
+      {isActionable && (
+        <View style={[styles.actionBar, { bottom: bottomOffset }]}>
+          <TouchableOpacity
+            style={[styles.rejectButton, actionLoading === 'reject' && styles.buttonDisabled]}
+            onPress={handleReject}
+            disabled={!!actionLoading}
+          >
+            {actionLoading === 'reject' ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <XCircle size={18} color="#fff" />
+                <Text style={styles.actionText}>Reject</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.approveButton, actionLoading === 'approve' && styles.buttonDisabled]}
+            onPress={handleApprove}
+            disabled={!!actionLoading}
+          >
+            {actionLoading === 'approve' ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <CheckCircle2 size={18} color="#fff" />
+                <Text style={styles.actionText}>Approve</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -168,24 +378,198 @@ export default function ModerationVideoDetail({ item, onBack, onMarkReviewed }: 
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  topBar: { flexDirection: 'row', alignItems: 'center', paddingTop: 60, paddingHorizontal: 16, paddingBottom: 12, gap: 12 },
-  backButton: { color: '#3498db', fontSize: 16 },
-  title: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1 },
+  container: { flex: 1, backgroundColor: '#0a0a0f' },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+    backgroundColor: '#0a0a0f',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,140,149,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: { color: '#fff', fontSize: 17, fontWeight: '700', flex: 1 },
+  reviewedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(41,252,243,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  reviewedText: { color: '#29fcf3', fontSize: 11, fontWeight: '600' },
   content: { flex: 1, paddingHorizontal: 16 },
-  infoCard: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16, marginBottom: 16 },
-  infoLabel: { color: '#888', fontSize: 13, marginBottom: 4 },
-  infoValue: { color: '#fff' },
-  assignButton: { backgroundColor: '#3498db', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 16 },
-  assignText: { color: '#fff', fontWeight: '600' },
-  sectionTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
+  videoPreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    backgroundColor: '#1a1220',
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  infoItem: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#141018',
+    borderRadius: 12,
+    padding: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+  },
+  infoLabel: { color: '#6b7280', fontSize: 11, fontWeight: '500' },
+  infoValue: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  priorityBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  priorityText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  reportWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(232,0,72,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,0,72,0.2)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  reportWarningTitle: { color: '#ff8c95', fontSize: 13, fontWeight: '700' },
+  reportWarningDesc: { color: '#6b7280', fontSize: 11, marginTop: 2 },
+  aiWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.2)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  aiWarningTitle: { color: '#f59e0b', fontSize: 13, fontWeight: '700' },
+  aiWarningDesc: { color: '#6b7280', fontSize: 11, marginTop: 2 },
+  assignButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#7c3aed',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+  },
+  assignText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  sectionTitle: { color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 12 },
   sceneTimeline: { marginBottom: 16 },
-  sceneThumb: { backgroundColor: '#222', borderRadius: 8, padding: 12, marginRight: 10, width: 120, alignItems: 'center' },
-  sceneThumbActive: { borderColor: '#3498db', borderWidth: 2 },
-  sceneIndex: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
-  sceneTime: { color: '#888', fontSize: 11, marginTop: 4 },
-  sceneTagCount: { color: '#666', fontSize: 10, marginTop: 2 },
-  actionBar: { flexDirection: 'row', padding: 16, gap: 12, paddingBottom: 40 },
-  reviewedButton: { flex: 1, backgroundColor: '#3498db', borderRadius: 8, padding: 14, alignItems: 'center' },
-  actionText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  sceneThumb: {
+    backgroundColor: '#141018',
+    borderRadius: 12,
+    marginRight: 10,
+    width: 110,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  sceneThumbActive: {
+    borderColor: '#e80048',
+  },
+  sceneThumbFlagged: {
+    borderColor: 'rgba(245,158,11,0.4)',
+  },
+  sceneImage: {
+    width: '100%',
+    height: 60,
+    backgroundColor: '#1a1220',
+  },
+  sceneInfo: {
+    padding: 8,
+  },
+  sceneIndex: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  sceneIndexActive: { color: '#ff8c95' },
+  sceneTime: { color: '#6b7280', fontSize: 10, marginTop: 2 },
+  sceneTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  sceneTagCount: { color: '#4b5563', fontSize: 10 },
+  notesSection: {
+    marginTop: 16,
+  },
+  notesToggle: {
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  notesToggleText: {
+    color: '#a78bfa',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  notesInput: {
+    backgroundColor: '#141018',
+    borderRadius: 12,
+    padding: 14,
+    color: '#fff',
+    fontSize: 14,
+    minHeight: 80,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.2)',
+  },
+  actionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    backgroundColor: '#0a0a0f',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+  },
+  rejectButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#e80048',
+    borderRadius: 14,
+    padding: 16,
+  },
+  approveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#059669',
+    borderRadius: 14,
+    padding: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  actionText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 });

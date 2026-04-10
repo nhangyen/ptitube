@@ -473,6 +473,11 @@ export const getModerationQueue = async (status?: string, page: number = 0, size
   return response.data;
 };
 
+export const getModerationStats = async () => {
+  const response = await api.get('/moderation/stats');
+  return response.data;
+};
+
 export const getModerationItem = async (queueId: string) => {
   const response = await api.get(`/moderation/queue/${queueId}`);
   return response.data;
@@ -490,6 +495,16 @@ export const assignModerationItem = async (queueId: string) => {
 
 export const markReviewed = async (queueId: string, notes?: string) => {
   const response = await api.post(`/moderation/queue/${queueId}/review`, { reason: notes });
+  return response.data;
+};
+
+export const approveVideo = async (queueId: string, reason?: string) => {
+  const response = await api.post(`/moderation/queue/${queueId}/approve`, { reason });
+  return response.data;
+};
+
+export const rejectVideo = async (queueId: string, reason?: string) => {
+  const response = await api.post(`/moderation/queue/${queueId}/reject`, { reason });
   return response.data;
 };
 
