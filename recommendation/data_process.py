@@ -101,7 +101,8 @@ def load_item_category_feat():
     df_raw["feat"] = df_raw["feat"].map(eval)   # string literal → Python list
 
     df_feat = pd.DataFrame(df_raw["feat"].tolist(),
-                           columns=["feat0", "feat1", "feat2", "feat3"])
+                           columns=["feat0", "feat1", "feat2", "feat3"],
+                           index=df_raw["item_id"])
     df_feat.index.name = "item_id"
     df_feat[df_feat.isna()] = -1
     df_feat = (df_feat + 1).astype(int)         # shift: NaN/unknown (-1) → 0
@@ -295,14 +296,14 @@ def save_npy_arrays(df_train: pd.DataFrame,
     train_arr  = _build_npy(df_train)
     train_path = os.path.join(out_dir, "train_kauiRec.npy")
     np.save(train_path, train_arr)
-    print(f"  Saved  → {train_path}   shape={train_arr.shape}")
+    print(f"  Saved -> {train_path}   shape={train_arr.shape}")
     print(f"  Sample row: {train_arr[0]}")
 
     print("\nConverting test split to NumPy array...")
     test_arr  = _build_npy(df_val)
     test_path = os.path.join(out_dir, "test_kauiRec.npy")
     np.save(test_path, test_arr)
-    print(f"  Saved  → {test_path}    shape={test_arr.shape}")
+    print(f"  Saved -> {test_path}    shape={test_arr.shape}")
     print(f"  Sample row: {test_arr[0]}")
 
 

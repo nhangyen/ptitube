@@ -49,7 +49,6 @@ credentials/
 .env.production.local
 
 # Large files
-*.pth
 *.npy
 
 # Data
@@ -57,4 +56,7 @@ data/
 
 # video
 /ytb_crawler
-/recommendation/checkpoints
+
+.venv/
+
+*/__pycache__/
