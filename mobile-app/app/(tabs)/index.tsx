@@ -146,7 +146,12 @@ export default function FeedScreen() {
 
     try {
       const response = await api.getFeed(pageNum, 10);
-      setVideos((current) => (refresh ? response : [...current, ...response]));
+      setVideos((current) => {
+        if (refresh) return response;
+        const existingIds = new Set(current.map(v => v.id));
+        const newVideos = response.filter(v => !existingIds.has(v.id));
+        return [...current, ...newVideos];
+      });
       setHasMore(response.length >= 10);
       setPage(pageNum);
     } catch (error) {
