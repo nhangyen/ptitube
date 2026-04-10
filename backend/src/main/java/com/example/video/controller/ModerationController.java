@@ -38,6 +38,16 @@ public class ModerationController {
     @Autowired
     private UserRepository userRepository;
 
+    // ==================== STATS ====================
+
+    @GetMapping("/stats")
+    public ResponseEntity<?> getQueueStats(Authentication authentication) {
+        if (!isModerator(authentication)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Access denied"));
+        }
+        return ResponseEntity.ok(moderationService.getQueueStats());
+    }
+
     // ==================== QUEUE ====================
 
     @GetMapping("/queue")
@@ -95,6 +105,34 @@ public class ModerationController {
         String notes = request != null ? request.getReason() : null;
         moderationService.markReviewed(queueId, userId, notes);
         return ResponseEntity.ok(Map.of("message", "Tags reviewed"));
+    }
+
+    @PostMapping("/queue/{queueId}/approve")
+    public ResponseEntity<?> approveVideo(
+            @PathVariable UUID queueId,
+            @RequestBody(required = false) ModerationActionRequest request,
+            Authentication authentication) {
+        UUID userId = getCurrentUserId(authentication);
+        if (userId == null || !isModerator(authentication)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Access denied"));
+        }
+        String reason = request != null ? request.getReason() : null;
+        moderationService.approveVideo(queueId, userId, reason);
+        return ResponseEntity.ok(Map.of("message", "Video approved"));
+    }
+
+    @PostMapping("/queue/{queueId}/reject")
+    public ResponseEntity<?> rejectVideo(
+            @PathVariable UUID queueId,
+            @RequestBody(required = false) ModerationActionRequest request,
+            Authentication authentication) {
+        UUID userId = getCurrentUserId(authentication);
+        if (userId == null || !isModerator(authentication)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Access denied"));
+        }
+        String reason = request != null ? request.getReason() : null;
+        moderationService.rejectVideo(queueId, userId, reason);
+        return ResponseEntity.ok(Map.of("message", "Video rejected"));
     }
 
     // ==================== SCENE TAGS ====================
