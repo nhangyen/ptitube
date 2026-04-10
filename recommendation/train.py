@@ -41,6 +41,7 @@ def parse_args():
     parser.add_argument('--huber_weight', type=float, default=1.0, help='Huber loss weight')
     parser.add_argument('--log_dir', type=str, default='checkpoints/', help='Log directory')
     parser.add_argument('--seed', type=int, default=2024, help='random seed')
+    parser.add_argument('--load_checkpoint', type=str, default=None, help='Path to an existing model (.pth) to continue training')
 
     # Data paths
     parser.add_argument('--train_data', type=str, required=True, help='Path to training data (.npy)')
@@ -161,9 +162,16 @@ def build_model(args, vocab_size, max_values_per_column, device):
                       n_layers=args.dec_layers)
 
     model = Seq2Seq(encoder, decoder, args.use_embedding_mixup, max_values_per_column, args.feat_dim, device).to(device)
-
     print(f'The model has {count_parameters(model):,} trainable parameters')
-    model.apply(init_weights)
+
+    if args.load_checkpoint and os.path.exists(args.load_checkpoint):
+        print(f"🔄 Đang nạp model cũ từ: {args.load_checkpoint}")
+        model.load_state_dict(torch.load(args.load_checkpoint, map_location=device))
+        print("✅ Nạp model thành công! Bắt đầu học tiếp...")
+    else:
+        print("✨ Khởi tạo model mới với trọng số ngẫu nhiên.")
+        model.apply(init_weights)
+    
     return model
 
 

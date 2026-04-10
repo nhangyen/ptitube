@@ -1,6 +1,7 @@
 package com.example.video.service;
 
 import com.example.video.dto.AiPredictionRequest;
+import com.example.video.dto.AiPredictionRequest.VideoCandidate;
 import com.example.video.dto.AiPredictionResponse;
 import com.example.video.dto.VideoFeedItem;
 import com.example.video.model.*;
@@ -58,7 +59,7 @@ public class RecommendationService {
     @Autowired
     private UserRepository userRepository;
 
-    @Value("${ai.server.url:http://192.168.1.23:8000}")
+    @Value("${ai.server.url:http://localhost:8000}")
     private String aiServerUrl;
 
     private final RestTemplate restTemplate = createRestTemplate();
@@ -89,9 +90,9 @@ public class RecommendationService {
         }
 
         // Check if new user
-        if (isNewUser(user)) {
-            return getRandomFeed(currentUserId, safeSize);
-        }
+        // if (isNewUser(user)) {
+        //     return getRandomFeed(currentUserId, safeSize);
+        // }
 
         // Existing user → AI-powered feed
         try {
@@ -215,7 +216,7 @@ public class RecommendationService {
         request.setUserProfile(profile);
 
         // Build video candidates
-        List<AiPredictionRequest.VideoCandidate> videoCandidates = candidates.stream()
+        List<VideoCandidate> videoCandidates = candidates.stream()
                 .filter(v -> v.getNumericId() != null)
                 .map(this::buildVideoCandidate)
                 .collect(Collectors.toList());
@@ -261,8 +262,8 @@ public class RecommendationService {
         return profile;
     }
 
-    private AiPredictionRequest.VideoCandidate buildVideoCandidate(Video video) {
-        AiPredictionRequest.VideoCandidate candidate = new AiPredictionRequest.VideoCandidate();
+    private VideoCandidate buildVideoCandidate(Video video) {
+        VideoCandidate candidate = new VideoCandidate();
 
         candidate.setCandidateId(video.getNumericId());
         candidate.setItemId(0); // 0 for videos not yet trained by AI
