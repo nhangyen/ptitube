@@ -189,18 +189,14 @@ export default function EditorScreen() {
   const handleTextPositionChange = useCallback(
     (x: number, y: number) => {
       if (textParams) {
-        // Chuyển đổi tọa độ từ preview sang tọa độ video thực tế
-        // Giả sử video 1080p, preview width = SCREEN_WIDTH
-        const scaleX = 1080 / windowWidth;
-        const scaleY = 1920 / videoPreviewHeight;
         setTextParams({
           ...textParams,
-          x: Math.round(x * scaleX),
-          y: Math.round(y * scaleY),
+          x: x,
+          y: y,
         });
       }
     },
-    [textParams, videoPreviewHeight, windowWidth]
+    [textParams]
   );
 
   // ===== EXPORT =====
@@ -231,8 +227,8 @@ export default function EditorScreen() {
               content: textParams.content,
               color: textParams.color,
               fontSize: textParams.fontSize,
-              x: textParams.x,
-              y: textParams.y,
+              x: textParams.x / windowWidth,
+              y: textParams.y / videoPreviewHeight,
             }
           : null,
         filter: selectedFilterId !== 'none' ? selectedFilterId : null,
