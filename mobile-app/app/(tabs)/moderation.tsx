@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import * as api from '@/services/api';
 import ModerationVideoDetail from '@/components/ModerationVideoDetail';
 import { Shield, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react-native';
-import { router } from 'expo-router';
 
 const STATUS_FILTERS = ['pending', 'in_review', 'reviewed'];
 
@@ -99,9 +98,9 @@ export default function ModerationScreen() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock size={14} color="#ff8c95" className="mr-1" />;
-      case 'in_review': return <AlertTriangle size={14} color="#f3ffca" className="mr-1" />;
-      case 'reviewed': return <CheckCircle2 size={14} color="#29fcf3" className="mr-1" />;
+      case 'pending': return <Clock size={14} color="#ff8c95" />;
+      case 'in_review': return <AlertTriangle size={14} color="#f3ffca" />;
+      case 'reviewed': return <CheckCircle2 size={14} color="#29fcf3" />;
       default: return null;
     }
   };
@@ -132,7 +131,7 @@ export default function ModerationScreen() {
           <Text className="text-xs font-label text-gray-300">{item.sceneCount} scenes</Text>
         </View>
         <View className="bg-surface-container-highest px-3 py-1.5 rounded-xl mr-2 flex-row items-center">
-          {getStatusIcon(activeFilter)}
+          <View style={styles.statusIcon}>{getStatusIcon(activeFilter)}</View>
           <Text className="text-xs font-label text-gray-300">AI: {item.aiJobStatus || 'N/A'}</Text>
         </View>
         {item.assignedTo && (
@@ -154,13 +153,21 @@ export default function ModerationScreen() {
         <Shield size={32} color="#ff8c95" />
       </View>
 
-      <View className="flex-row mb-6 bg-surface-container-low p-1 rounded-full">
+      <View style={styles.filterContainer}>
         {STATUS_FILTERS.map((status) => (
           <TouchableOpacity
             key={status}
-            className={`flex-1 py-3 items-center rounded-full ${activeFilter === status ? 'bg-surface-container-highest shadow-sm' : 'bg-transparent'}`}
+            style={[
+              styles.filterButton,
+              activeFilter === status && styles.filterButtonActive,
+            ]}
             onPress={() => setActiveFilter(status)}>
-            <Text className={`text-xs font-label uppercase tracking-widest ${activeFilter === status ? 'text-primary font-bold' : 'text-gray-500'}`}>
+            <Text
+              style={[
+                styles.filterLabel,
+                activeFilter === status && styles.filterLabelActive,
+              ]}
+            >
               {status.replace('_', ' ')}
             </Text>
           </TouchableOpacity>
@@ -190,3 +197,36 @@ export default function ModerationScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  filterContainer: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    backgroundColor: '#1c1320',
+    padding: 4,
+    borderRadius: 999,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 999,
+  },
+  filterButtonActive: {
+    backgroundColor: '#2a1b32',
+  },
+  filterLabel: {
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  filterLabelActive: {
+    color: '#e80048',
+    fontWeight: '700',
+  },
+  statusIcon: {
+    marginRight: 4,
+  },
+});

@@ -91,7 +91,7 @@ public class ModerationService {
         ModerationAction action = new ModerationAction();
         action.setQueue(queue);
         action.setAdmin(admin);
-        action.setAction("review");
+        action.setAction("reviewed");
         action.setScope("video");
         action.setReason(notes);
         actionRepository.save(action);
