@@ -1,0 +1,129 @@
+
+04-02 21:12:52.470 D/SurfaceComposerClient( 1526): setCornerRadius ## 285808f Splash Screen com.example.videoapp#41815 cornerRadius=0.000000
+04-02 21:12:52.470 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.470 I/PkgPredictorService-SecIpmManagerServiceImpl( 1526): reportToNAP uid:10365 com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity thisTime:1331
+04-02 21:12:52.470 D/SurfaceComposerClient( 1526): setCornerRadius ## 285808f Splash Screen com.example.videoapp#41815 cornerRadius=0.000000
+04-02 21:12:52.470 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.472 I/ActivityTaskManager( 1526): Displayed com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity for user 0: +1s331ms
+04-02 21:12:52.472 I/Pageboost( 1526): Launch time gathered : pid 17267 com.example.videoapp 1331
+04-02 21:12:52.483 I/SurfaceFlinger( 1267): [Surface(name=ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity)/@0x26a23cd - animation-leash of starting_reveal#41831] attach to parent LayerHierarchy{RequestedLayerState{ActivityRecord{98665925 u0 com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity t1473}#41823 parentId=41813 z=1} 4 children}
+04-02 21:12:52.494 I/InsetsSourceConsumer(17267): applyRequestedVisibilityToControl: visible=true, type=statusBars, host=com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity
+04-02 21:12:52.494 I/InsetsSourceConsumer(17267): applyRequestedVisibilityToControl: visible=true, type=navigationBars, host=com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity
+04-02 21:12:52.500 I/SurfaceFlinger( 1267): RequestedLayer [com.example.videoapp/expo.modules.de[...]her.DevLauncherActivity$_17267#41828] hidden!! flag  from(1) --> to(0)
+04-02 21:12:52.500 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 parentId=41831} 1 children}] reparent to LayerHierarchy{RequestedLayerState{Surface(name=ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity)/@0x26a23cd - animation-leash of starting_reveal#41831 parentId=41823} 1 children}
+04-02 21:12:52.504 I/LayerHistory( 1267): Splash Screen com.example.videoapp$_2368#41816 voted ExplicitCategory with category: High
+04-02 21:12:52.504 I/LayerHistory( 1267): com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity$_17267#41828 voted ExplicitCategory with category: High
+04-02 21:12:52.513 D/SurfaceComposerClient( 1526): setCornerRadius ## 285808f Splash Screen com.example.videoapp#41815 cornerRadius=0.000000
+04-02 21:12:52.513 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.515 D/VRI[MainActivity]@510ef15(17267): WindowStopped on com.example.videoapp/com.example.videoapp.MainActivity set to true
+04-02 21:12:52.518 D/SurfaceFlinger( 1267):        DEVICE |           74161200300034 | 00002102 | RGBA_8888    |    0.0    0.0 1080.0 2284.0 |    0   56 1080 2340 | com.example.videoapp/expo.modules.de[...]her.DevLauncherActivity$_17267#41828 (2)
+04-02 21:12:52.518 D/SurfaceFlinger( 1267):        DEVICE |           10170482625537 | 00002100 | RGBA_8888    |    0.0    0.0 1080.0 2340.0 |    0    0 1080 2340 | Splash Screen com.example.videoapp$_2368#41816 (2)
+04-02 21:12:52.518 V/WindowManager( 1526): Remove Window{1886a35 u0 com.example.videoapp/com.example.videoapp.MainActivity}: mSurfaceControl=null mAnimatingExit=false mRemoveOnExit=false mHasSurface=false surfaceShowing=false animating=false app-animation=false callers=com.android.server.wm.Session.remove:16 android.view.IWindowSession$Stub.onTransact:804 com.android.server.wm.Session.onTransact:1 android.os.Binder.execTransactInternal:1457 android.os.Binder.execTransact:1401 <bottom of call 
+stack> 
+04-02 21:12:52.519 D/SurfaceComposerClient( 1526): setCornerRadius ## 285808f Splash Screen com.example.videoapp#41815 cornerRadius=0.000000
+04-02 21:12:52.519 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.519 D/SurfaceComposerClient( 1526): setCornerRadius ## 285808f Splash Screen com.example.videoapp#41815 cornerRadius=0.000000
+04-02 21:12:52.519 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.519 D/InputDispatcher( 1526): Focus entered window (0): ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity
+04-02 21:12:52.519 I/WindowManager( 1526): setOnBackInvokedCallback(): No window state for package:com.example.videoapp
+04-02 21:12:52.521 I/SurfaceFlinger( 1267): id=41820 Removed 10a1966 ActivityRecordInputSink com.example.videoapp/.MainActivity#41820 (207)
+04-02 21:12:52.522 I/ImeTracker( 1526): com.example.videoapp:bd40509: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+04-02 21:12:52.524 D/SGM:FgCheckThread( 1526): getForegroundApp(), foregroundPkgName=com.example.videoapp
+04-02 21:12:52.525 D/SGM:FgCheckThread( 1526): pkgName: com.example.videoapp is in foreground
+04-02 21:12:52.527 D/SurfaceComposerClient( 1526): setCornerRadius ## 285808f Splash Screen com.example.videoapp#41815 cornerRadius=0.000000
+04-02 21:12:52.527 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.528 D/SurfaceComposerClient( 1526): setCornerRadius ## 285808f Splash Screen com.example.videoapp#41815 cornerRadius=0.000000
+04-02 21:12:52.529 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.541 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{ActivityRecord{47439188 u0 com.example.videoapp/.MainActivity t1473}#41814} 2 children}] reparent to OffscreenRoot
+04-02 21:12:52.541 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{ActivityRecord{47439188 u0 com.example.videoapp/.MainActivity t1473}#41814} 2 children}] RelativeParent to null
+04-02 21:12:52.541 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{1886a35 com.example.videoapp/com.example.videoapp.MainActivity#41824} no children}] reparent to OffscreenRoot
+04-02 21:12:52.541 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{1886a35 com.example.videoapp/com.example.videoapp.MainActivity#41824} no children}] RelativeParent to null
+04-02 21:12:52.542 I/SurfaceFlinger( 1267): id=41824 Removed 1886a35 com.example.videoapp/com.example.videoapp.MainActivity#41824 (207)
+04-02 21:12:52.545 I/ImeTracker(17267): com.example.videoapp:bd40509: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+04-02 21:12:52.547 D/InsetsSourceProvider( 1526): updateControlForTarget: control=InsetsSourceControl: {3 mType=ime mSurfacePosition=Point(0, 92) mInsetsHint=Insets{left=0, top=0, right=0, bottom=885}}, target=Window{ebfe80f u0 com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity}, from=com.android.server.wm.ImeInsetsSourceProvider.updateControlForTarget:17 com.android.server.wm.InsetsStateController.onControlTargetChanged:83 
+com.android.server.wm.DisplayContent.updateImeControlTarget:21 com.android.server.wm.DisplayContent.updateImeInputAndControlTarget:156 com.android.server.wm.WindowManagerService$LocalService.updateInputMethodTargetWindow:64 
+04-02 21:12:52.549 I/SurfaceFlinger( 1267): destroyed 1886a35 com.example.videoapp/com.example.videoapp.MainActivity#41824
+04-02 21:12:52.550 I/Layer   ( 1267): id=41824 Destroyed 1886a35 com.example.videoapp/com.example.videoapp.MainActivity#41824
+04-02 21:12:52.551 D/SurfaceComposerClient( 1526): setCornerRadius ## 285808f Splash Screen com.example.videoapp#41815 cornerRadius=0.000000
+04-02 21:12:52.551 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.553 I/WindowManager( 1526): Relayout Window{285808f u0 Splash Screen com.example.videoapp}: viewVisibility=8 req=1080x2340 ty=3 d0
+04-02 21:12:52.553 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.554 D/SurfaceComposerClient( 1526): setCornerRadius ## 285808f Splash Screen com.example.videoapp#41815 cornerRadius=0.000000
+04-02 21:12:52.554 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.557 D/SGM:FgCheckThread( 1526): getForegroundApp(), foregroundPkgName=com.example.videoapp
+04-02 21:12:52.558 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{ImeContainer#15 parentId=41823 relativeParentId=41823 z=3} 1 children}] reparent to LayerHierarchy{RequestedLayerState{ActivityRecord{98665925 u0 com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity t1473}#41823 parentId=41813 z=1} 4 children}
+04-02 21:12:52.560 I/HBD     ( 5367): b [AiWriter] setContact : com.example.videoapp
+04-02 21:12:52.560 I/HBD     ( 5367): a [AiWriter] setContact : com.example.videoapp
+04-02 21:12:52.562 D/CoreBackPreview( 1526): Window{285808f u0 Splash Screen com.example.videoapp}: Setting back callback null
+04-02 21:12:52.562 D/WindowManager( 1526): Starting window removed Window{285808f u0 Splash Screen com.example.videoapp}
+04-02 21:12:52.562 I/WindowManager( 1526): Cancelling animation restarting=false, leash=Surface(name=Surface(name=ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity)/@0x26a23cd - animation-leash of starting_reveal)/@0xba7e482
+04-02 21:12:52.562 I/WindowManager( 1526): Reparenting to original parent: Surface(name=ActivityRecord{98665925 u0 com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity t1473})/@0x4432d22, destroy=false, surface=Surface(name=ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity)/@0x26a23cd
+04-02 21:12:52.563 V/WindowManager( 1526): Remove Window{285808f u0 Splash Screen com.example.videoapp}: mSurfaceControl=Surface(name=Splash Screen com.example.videoapp$_2368)/@0xde720ea mAnimatingExit=false mRemoveOnExit=false mHasSurface=true surfaceShowing=false animating=false app-animation=false callers=com.android.server.wm.Session.remove:16 android.view.IWindowSession$Stub.onTransact:804 com.android.server.wm.Session.onTransact:1 android.os.Binder.execTransactInternal:1457 
+android.os.Binder.execTransact:1401 <bottom of call stack> 
+04-02 21:12:52.563 D/SGM:GameManager( 1526): identifyForegroundApp. com.example.videoapp, mCurrentUserId: 0, callerUserId: 0
+04-02 21:12:52.563 D/SGM:GameManager( 1526): identifyForegroundApp. com.example.videoapp, mCurrentUserId: 0, callerUserId: 0
+04-02 21:12:52.564 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.564 D/SGM:FgCheckThread( 1526): noteStopComponent(), received pkgName: host.exp.exponent, focusedPkgName: com.example.videoapp, userId: 0
+04-02 21:12:52.565 D/WindowManager( 1526): updateSystemBarAttributes: displayId=0, focusedCanBeNavColorWin=false, win=Window{ebfe80f u0 com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity}, navColorWin=Window{ebfe80f u0 com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity}, caller=com.android.server.wm.DisplayPolicy.finishPostLayoutPolicyLw:17 com.android.server.wm.RootWindowContainer.applySurfaceChangesTransaction$1:195 
+com.android.server.wm.RootWindowContainer.performSurfacePlacementNoTrace:59 
+04-02 21:12:52.566 I/SurfaceFlinger( 1267): RequestedLayer [Splash Screen com.example.videoapp$_2368#41816] hidden!! flag  from(0) --> to(1)
+04-02 21:12:52.566 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.574 D/SurfaceFlinger( 1267):        DEVICE |           74161200300033 | 00002102 | RGBA_8888    |    0.0    0.0 1080.0 2340.0 |    0    0 1080 2340 | com.example.videoapp/expo.modules.de[...]her.DevLauncherActivity$_17267#41828 (7)
+04-02 21:12:52.575 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{ImeContainer#15 parentId=41823 relativeParentId=41827 z=1} 1 children}] RelativeParent to LayerHierarchy{RequestedLayerState{ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 parentId=41823} 2 children}
+04-02 21:12:52.575 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{Surface(name=ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity)/@0x26a23cd - animation-leash of starting_reveal#41831} 1 children}] reparent to OffscreenRoot
+04-02 21:12:52.575 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{Surface(name=ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity)/@0x26a23cd - animation-leash of starting_reveal#41831} 1 children}] RelativeParent to null
+04-02 21:12:52.575 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{285808f Splash Screen com.example.videoapp#41815 z=2147483647} 1 children}] reparent to OffscreenRoot
+04-02 21:12:52.575 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{285808f Splash Screen com.example.videoapp#41815 z=2147483647} 1 children}] RelativeParent to null
+04-02 21:12:52.575 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{Splash Screen com.example.videoapp$_2368#41816} no children}] reparent to OffscreenRoot
+04-02 21:12:52.575 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{Splash Screen com.example.videoapp$_2368#41816} no children}] RelativeParent to null
+04-02 21:12:52.575 I/SurfaceFlinger( 1267): [LayerHierarchy{RequestedLayerState{ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 parentId=41823} 2 children}] reparent to LayerHierarchy{RequestedLayerState{ActivityRecord{98665925 u0 com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity t1473}#41823 parentId=41813} 3 children}
+04-02 21:12:52.577 I/HBD     ( 5367): j [SKE_SPECIFIC] specific model[com.example.videoapp] loaded, 637813 ns
+04-02 21:12:52.577 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.580 I/SurfaceFlinger( 1267): id=41816 Removed Splash Screen com.example.videoapp$_2368#41816 (205)
+04-02 21:12:52.580 I/SurfaceFlinger( 1267): id=41815 Removed 285808f Splash Screen com.example.videoapp#41815 (205)
+04-02 21:12:52.580 D/SurfaceComposerClient( 1526): setCornerRadius ## ebfe80f com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity#41827 cornerRadius=0.000000
+04-02 21:12:52.583 I/SurfaceFlinger( 1267): destroyed 285808f Splash Screen com.example.videoapp#41815
+04-02 21:12:52.583 I/SurfaceFlinger( 1267): destroyed Splash Screen com.example.videoapp$_2368#41816
+04-02 21:12:52.585 I/Layer   ( 1267): id=41815 Destroyed 285808f Splash Screen com.example.videoapp#41815
+04-02 21:12:52.585 I/Layer   ( 1267): id=41816 Destroyed Splash Screen com.example.videoapp$_2368#41816
+04-02 21:12:52.691 D/MdnieScenarioControlService( 1526):  packageName : com.example.videoapp    className : expo.modules.devlauncher.launcher.DevLauncherActivity
+04-02 21:12:52.718 I/{OngoingActivityDataHelper}( 2368): setBaseActivityComponentName:ComponentInfo{com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity}
+04-02 21:12:53.048 D/SGM:GameManager( 1526): identifyForegroundApp. com.example.videoapp, mCurrentUserId: 0, callerUserId: 0
+04-02 21:12:55.444 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+04-02 21:12:55.857 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 0ms
+04-02 21:12:56.041 E/fb4a.msys(14904): E[N mccw.liger]onReadError(732)=>read/error - ex: AsyncSocketException: recv() failed (peer=57.144.64.8:5222), type = Internal error, errno = 103 (Software caused connection abort), errno: 103
+04-02 21:12:56.042 E/fb4a.msys(14904): E[N WA]_WCCXMPPStreamDisconnectHandler(340)=>xmpp/disconnect - WCIStreamStateErrorCode: 2, domain: WCIStreamState, subdomain: MCCWLigerStream: Error Domain=WCIStreamState Code=2 UserInfo=0x2c3fb49fc0 {MCFErrorDirectUnderlyingErrorKey=0xb40000739f330190 "Error Domain=MCCWLigerStream Code=2 UserInfo=0x2c3fb49f80 {MCFErrorDirectLocalizedFailureReasonKey=AsyncSocketException: recv() failed (peer=57.144.64.8:5222), type = Internal error, errno = 103 (Software 
+caused connection abort)}"}
+04-02 21:12:56.967 D/ProfileInstaller(17267): Installing profile for com.example.videoapp
+04-02 21:12:57.865 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 0ms
+04-02 21:12:58.476 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+04-02 21:12:59.875 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:01.495 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+04-02 21:13:01.884 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 0ms
+04-02 21:13:02.599 W/Conscrypt(14612): Could not set socket write timeout: java.net.SocketException: Socket closed
+04-02 21:13:02.731 W/Conscrypt(14612): Could not set socket write timeout: java.net.SocketException: Socket closed
+04-02 21:13:03.891 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:04.541 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+04-02 21:13:05.903 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:07.578 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+04-02 21:13:07.915 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:09.926 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:10.602 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+04-02 21:13:10.642 I/SurfaceFlinger( 1267): [com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity$_17267#41828] setFrameRateCategory: HighHint
+04-02 21:13:11.746 I/LayerHistory( 1267): com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity$_17267#41828 voted ExplicitCategory with category: HighHint
+04-02 21:13:11.950 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:12.800 I/LayerHistory( 1267): com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity$_17267#41828 voted ExplicitCategory with category: HighHint
+04-02 21:13:13.312 I/LayerHistory( 1267): com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity$_17267#41828 voted ExplicitCategory with category: HighHint
+04-02 21:13:13.664 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+04-02 21:13:13.757 I/SurfaceFlinger( 1267): [com.example.videoapp/expo.modules.devlauncher.launcher.DevLauncherActivity$_17267#41828] setFrameRateCategory: NoPreference
+04-02 21:13:13.968 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:15.987 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:16.692 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+04-02 21:13:18.009 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:19.720 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+04-02 21:13:20.028 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:22.049 D/NetdEventListenerService( 1526): DNS Requested by 175, 10365(com.example.videoapp), SUCCESS, 1ms
+04-02 21:13:22.780 E/WifiStaIfaceAidlImpl( 1526): getCachedScanData failed with service-specific exception: android.os.ServiceSpecificException:  (code 4)
+
+
+

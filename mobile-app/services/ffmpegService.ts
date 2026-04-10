@@ -67,11 +67,18 @@ function requireMedia3Module(): NativeMedia3Module {
   return media3Module;
 }
 
+function hasUriScheme(uri: string): boolean {
+  if (/^[A-Za-z]:[\\/]/.test(uri)) {
+    return false;
+  }
+  return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(uri);
+}
+
 function ensureFileUri(uri: string): string {
   if (!uri) {
     return uri;
   }
-  if (uri.startsWith('file://') || uri.startsWith('content://')) {
+  if (hasUriScheme(uri)) {
     return uri;
   }
   return `file://${uri}`;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Image } from 'expo-image';
 import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { ListRenderItem } from 'react-native';
 import type { VideoItem } from '@/services/api';
@@ -32,13 +33,20 @@ export default function VideoGrid({
   const renderItem: ListRenderItem<VideoItem> = ({ item }) => (
     <TouchableOpacity style={styles.card} onPress={() => onVideoPress(item)} activeOpacity={0.85}>
       <View style={styles.preview}>
-        <View style={styles.previewTopRow}>
-          <Text style={styles.previewBadge}>VIDEO</Text>
-          {item.entryType === 'repost' ? <Text style={styles.repostBadge}>REPOST</Text> : null}
+        {item.thumbnailUrl ? (
+          <Image
+            source={{ uri: item.thumbnailUrl }}
+            style={styles.thumbnail}
+            contentFit="cover"
+            transition={150}
+          />
+        ) : null}
+        <View style={styles.previewOverlay}>
+          <View style={styles.previewTopRow}>
+            <Text style={styles.previewBadge}>VIDEO</Text>
+            {item.entryType === 'repost' ? <Text style={styles.repostBadge}>REPOST</Text> : null}
+          </View>
         </View>
-        <Text style={styles.previewTitle} numberOfLines={2}>
-          {item.title || 'Untitled'}
-        </Text>
       </View>
       <View style={styles.meta}>
         <Text style={styles.title} numberOfLines={1}>
@@ -90,8 +98,16 @@ const styles = StyleSheet.create({
   preview: {
     height: CARD_WIDTH * 1.22,
     backgroundColor: '#262626',
+    position: 'relative',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  previewOverlay: {
+    ...StyleSheet.absoluteFillObject,
     padding: 14,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   previewTopRow: {
     flexDirection: 'row',
@@ -118,12 +134,6 @@ const styles = StyleSheet.create({
     color: '#290905',
     fontSize: 10,
     fontWeight: '800',
-  },
-  previewTitle: {
-    color: '#fff',
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '700',
   },
   meta: {
     padding: 12,

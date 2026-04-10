@@ -69,17 +69,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="action"
-        options={{
-          title: 'Create',
-          tabBarButton: CreateTabButton,
-        }}
-      />
-      <Tabs.Screen
         name="alerts"
         options={{
           title: 'Notifications',
           tabBarIcon: ({ color }) => <NotificationsTabIcon color={color} unreadCount={unreadCount} />,
+        }}
+      />
+      <Tabs.Screen
+        name="action"
+        options={{
+          title: 'Create',
+          tabBarButton: CreateTabButton,
         }}
       />
       <Tabs.Screen

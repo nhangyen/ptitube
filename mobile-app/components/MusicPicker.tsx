@@ -5,7 +5,7 @@
  * Cho phép nghe thử, điều chỉnh volume, chọn giữ/bỏ tiếng gốc.
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -48,6 +48,12 @@ export default function MusicPicker({
       setCurrentPreview(null);
     }
   }, []);
+
+  useEffect(() => {
+    return () => {
+      void stopPreview();
+    };
+  }, [stopPreview]);
 
   const playPreview = useCallback(async (track: MusicTrack) => {
     await stopPreview();

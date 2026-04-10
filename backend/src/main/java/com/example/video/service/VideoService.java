@@ -55,6 +55,7 @@ public class VideoService {
         video.setTitle(title.trim());
         video.setDescription(description == null ? null : description.trim());
         video.setVideoUrl(fileName);
+        video.setThumbnailUrl(null);
         video.setFileSize(file.getSize());
         video.setFormat(normalizeContentType(file.getContentType()));
         video.setUser(user);

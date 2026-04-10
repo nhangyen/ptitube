@@ -8,6 +8,7 @@ const api = axios.create({
 });
 
 let authToken: string | null = null;
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
 export interface VideoStats {
   viewCount: number;
@@ -151,6 +152,62 @@ export interface AuthPayload {
   role?: string;
 }
 
+const resolveApiMediaUrl = (value?: string | null): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+
+  if (trimmed.startsWith('/')) {
+    return `${API_ORIGIN}${trimmed}`;
+  }
+
+  return `${API_ORIGIN}/${trimmed}`;
+};
+
+const normalizeVideoItem = (item: any): VideoItem => ({
+  ...item,
+  videoUrl: resolveApiMediaUrl(item?.videoUrl) ?? '',
+  thumbnailUrl: resolveApiMediaUrl(item?.thumbnailUrl),
+});
+
+const normalizeVideoItems = (items: any): VideoItem[] =>
+  Array.isArray(items) ? items.map((item) => normalizeVideoItem(item)) : [];
+
+const normalizeDiscoverData = (data: any): DiscoverData => ({
+  featuredVideos: normalizeVideoItems(data?.featuredVideos),
+  trendingHashtags: Array.isArray(data?.trendingHashtags) ? data.trendingHashtags : [],
+  suggestedCreators: Array.isArray(data?.suggestedCreators) ? data.suggestedCreators : [],
+});
+
+const normalizeSearchResults = (data: any, fallbackQuery: string): SearchResults => ({
+  query: typeof data?.query === 'string' ? data.query : fallbackQuery,
+  videos: normalizeVideoItems(data?.videos),
+  users: Array.isArray(data?.users) ? data.users : [],
+  hashtags: Array.isArray(data?.hashtags) ? data.hashtags : [],
+});
+
+const normalizeHashtagDetail = (data: any, tag: string): HashtagDetail => ({
+  hashtag: data?.hashtag ?? {
+    name: tag,
+    displayName: tag ? `#${tag}` : '#',
+    videoCount: 0,
+  },
+  videos: normalizeVideoItems(data?.videos),
+});
+
 export const setAuthToken = (token: string | null) => {
   authToken = token;
   if (token) {
@@ -176,7 +233,7 @@ export const register = async (username: string, email: string, password: string
 
 export const getFeed = async (page: number = 0, size: number = 10): Promise<VideoItem[]> => {
   const response = await api.get('/feed', { params: { page, size } });
-  return response.data;
+  return normalizeVideoItems(response.data);
 };
 
 export const recordView = async (videoId: string, watchDuration: number = 0, completed: boolean = false) => {
@@ -195,7 +252,7 @@ export const getVideoDetail = async (videoId: string, repostedByUserId?: string)
   const response = await api.get(`/videos/${videoId}`, {
     params: repostedByUserId ? { repostedByUserId } : undefined,
   });
-  return response.data;
+  return normalizeVideoItem(response.data);
 };
 
 export const uploadVideo = async (
@@ -335,12 +392,12 @@ export const getUserProfile = async (userId: string): Promise<ProfileData> => {
 
 export const getMyVideos = async (): Promise<VideoItem[]> => {
   const response = await api.get('/profile/videos');
-  return response.data;
+  return normalizeVideoItems(response.data);
 };
 
 export const getUserVideos = async (userId: string): Promise<VideoItem[]> => {
   const response = await api.get(`/users/${userId}/videos`);
-  return response.data;
+  return normalizeVideoItems(response.data);
 };
 
 export const getFollowers = async (userId: string): Promise<UserCard[]> => {
@@ -359,22 +416,34 @@ export const getCreatorDashboard = async (): Promise<DashboardData> => {
 };
 
 export const getDiscover = async (): Promise<DiscoverData> => {
-  const response = await api.get('/discover');
-  return response.data;
+  try {
+    const response = await api.get('/discover');
+    return normalizeDiscoverData(response.data);
+  } catch {
+    return normalizeDiscoverData(null);
+  }
 };
 
 export const searchDiscover = async (query: string, page: number = 0, size: number = 12): Promise<SearchResults> => {
-  const response = await api.get('/discover/search', {
-    params: { q: query, page, size },
-  });
-  return response.data;
+  try {
+    const response = await api.get('/discover/search', {
+      params: { q: query, page, size },
+    });
+    return normalizeSearchResults(response.data, query);
+  } catch {
+    return normalizeSearchResults(null, query);
+  }
 };
 
 export const getHashtagDetail = async (tag: string, page: number = 0, size: number = 12): Promise<HashtagDetail> => {
-  const response = await api.get(`/discover/hashtags/${encodeURIComponent(tag)}`, {
-    params: { page, size },
-  });
-  return response.data;
+  try {
+    const response = await api.get(`/discover/hashtags/${encodeURIComponent(tag)}`, {
+      params: { page, size },
+    });
+    return normalizeHashtagDetail(response.data, tag);
+  } catch {
+    return normalizeHashtagDetail(null, tag);
+  }
 };
 
 export const getNotifications = async (page: number = 0, size: number = 20): Promise<NotificationItem[]> => {
