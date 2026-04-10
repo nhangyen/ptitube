@@ -277,7 +277,7 @@ CREATE TABLE IF NOT EXISTS moderation_actions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     queue_id UUID NOT NULL REFERENCES moderation_queue(id) ON DELETE CASCADE,
     admin_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    action VARCHAR(20) NOT NULL CHECK (action IN ('approve', 'reject', 'revise_tags', 'flag', 'escalate', 'ban')),
+    action VARCHAR(20) NOT NULL CHECK (action IN ('approve', 'reject', 'revise_tags', 'flag', 'escalate', 'ban', 'reviewed')),
     scope VARCHAR(20) CHECK (scope IN ('video', 'scene')),
     target_scene_id UUID REFERENCES video_scenes(id) ON DELETE SET NULL,
     reason TEXT,

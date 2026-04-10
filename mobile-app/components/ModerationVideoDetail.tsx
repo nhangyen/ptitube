@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -51,24 +51,37 @@ export default function ModerationVideoDetail({ item, onBack, onMarkReviewed }: 
   const [loading, setLoading] = useState(true);
   const [selectedScene, setSelectedScene] = useState<SceneData | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const selectedSceneIdRef = useRef<string | null>(null);
 
-  const fetchScenes = async () => {
+  useEffect(() => {
+    selectedSceneIdRef.current = selectedScene?.sceneId ?? null;
+  }, [selectedScene?.sceneId]);
+
+  const fetchScenes = useCallback(async (preferredSceneId?: string) => {
     try {
-      const data = await api.getVideoScenes(item.queueId);
+      const data: SceneData[] = await api.getVideoScenes(item.queueId);
       setScenes(data);
-      if (data.length > 0 && !selectedScene) {
-        setSelectedScene(data[0]);
+      if (data.length === 0) {
+        setSelectedScene(null);
+        return;
       }
+
+      const targetSceneId = preferredSceneId ?? selectedSceneIdRef.current;
+      const nextSelectedScene = targetSceneId
+        ? data.find((scene) => scene.sceneId === targetSceneId) || data[0]
+        : data[0];
+      setSelectedScene(nextSelectedScene);
     } catch (error) {
       console.error('Failed to fetch scenes:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [item.queueId]);
 
   useEffect(() => {
-    fetchScenes();
-  }, [item.queueId]);
+    setLoading(true);
+    void fetchScenes();
+  }, [fetchScenes]);
 
   const handleAssign = async () => {
     setAssigning(true);
@@ -134,7 +147,9 @@ export default function ModerationVideoDetail({ item, onBack, onMarkReviewed }: 
             {selectedScene && (
               <SceneTagEditor
                 scene={selectedScene}
-                onTagsChanged={fetchScenes}
+                onTagsChanged={() => {
+                  void fetchScenes(selectedScene.sceneId);
+                }}
               />
             )}
           </>
