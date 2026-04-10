@@ -53,7 +53,6 @@ export default function SocialActions({
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [isReposted, setIsReposted] = useState(initialReposted);
   const [repostCount, setRepostCount] = useState(stats.repostCount);
-  const [shareCount, setShareCount] = useState(stats.shareCount);
 
   const likeScale = useRef(new Animated.Value(1)).current;
 
@@ -63,7 +62,6 @@ export default function SocialActions({
     setIsFollowing(initialFollowing);
     setIsReposted(initialReposted);
     setRepostCount(stats.repostCount);
-    setShareCount(stats.shareCount);
   }, [initialLiked, stats, initialFollowing, initialReposted]);
 
   const handleLike = async () => {
@@ -110,7 +108,6 @@ export default function SocialActions({
         message: `Watch this video on Neon: ${shareLink}`,
         url: shareLink,
       });
-      setShareCount(c => c + 1);
     } catch (error) {
       console.error('Error sharing:', error);
     }
@@ -196,9 +193,6 @@ export default function SocialActions({
         <View className="w-12 h-12 rounded-full items-center justify-center bg-black/30">
           <Share2 size={26} color="#ffffff" strokeWidth={1.5} />
         </View>
-        <Text className="text-white/90 mt-1 text-xs font-label font-medium drop-shadow-md">
-          {formatCount(shareCount || stats.shareCount || 0)}
-        </Text>
       </TouchableOpacity>
     </View>
   );
