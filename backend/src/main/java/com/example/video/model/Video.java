@@ -20,7 +20,7 @@ public class Video {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    @Column(name = "numeric_id", insertable = false, updatable = false)
+    @Column(name = "numeric_id")
     private Integer numericId;
 
     @ManyToOne(fetch = FetchType.LAZY)

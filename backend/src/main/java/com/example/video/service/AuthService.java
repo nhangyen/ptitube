@@ -41,7 +41,7 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-
+        user.setNumericId(userRepository.count() + 1);
         userRepository.save(user);
 
         // Auto-login after register

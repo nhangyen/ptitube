@@ -292,7 +292,7 @@ public class SocialService {
             stats.setViewCount(stats.getViewCount() + 1);
             videoStatsRepository.save(stats);
         });
-
+        System.out.println("View recorded for video " + videoId + " by user " + userId+" video: "+video.getNumericId()+" user: "+user.getNumericId());
         // 3. Log to CSV for AI training if we have user and video info
         if (video != null && user != null && video.getNumericId() != null && user.getNumericId() != null) {
             float totalDuration = video.getDurationSeconds() != null ? video.getDurationSeconds() : 30.0f;

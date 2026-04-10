@@ -54,3 +54,6 @@ credentials/
 
 # Data
 data/
+
+# video
+/ytb_crawler
