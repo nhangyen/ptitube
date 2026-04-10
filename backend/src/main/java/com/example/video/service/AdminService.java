@@ -47,6 +47,9 @@ public class AdminService {
     @Autowired
     private VideoRepostRepository videoRepostRepository;
 
+    @Autowired
+    private MinioService minioService;
+
     // ==================== CONTENT MODERATION ====================
 
     public List<Report> getOpenReports() {
@@ -288,6 +291,45 @@ public class AdminService {
         }
 
         userRepository.save(user);
+        return getUserProfile(userId, userId);
+    }
+
+    @Transactional
+    public UserProfile uploadAvatar(UUID userId, org.springframework.web.multipart.MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("Avatar file is required");
+        }
+
+        String originalName = java.util.Optional.ofNullable(file.getOriginalFilename()).orElse("avatar.jpg");
+        String cleanName = org.springframework.util.StringUtils.cleanPath(originalName).replace("\\", "_").replace("/", "_");
+        String extension = "";
+        int extensionIndex = cleanName.lastIndexOf('.');
+        if (extensionIndex >= 0) {
+            extension = cleanName.substring(extensionIndex).toLowerCase(java.util.Locale.ROOT);
+        }
+        if (!org.springframework.util.StringUtils.hasText(extension)) {
+            extension = ".jpg";
+        }
+        String fileName = "avatars/" + UUID.randomUUID() + extension;
+        
+        minioService.uploadFile(fileName, file);
+
+        // Update user avatarUrl. Assume avatar files are served similarly to videos or directly from minio endpoint? Wait...
+        // Video objects return stream via /api/videos/stream/X. MinIO public bucket might be needed for avatars. 
+        // Or we just return the http URL of MinIO. Let's see how video.getStreamUrl works.
+        // It's "/api/videos/stream/id". The app handles video.
+        // What about thumbnails? Video.java has `thumbnailUrl`. Where does it point? Usually to a full URL or relative.
+        // Since the app resolves URLs with `resolveApiMediaUrl`, if we store relative file path, it prepends API_ORIGIN.
+        // So the backend would need an endpoint to serve static files/avatars if they are relative, or return an absolute URL.
+        // Wait, the client uses `API_ORIGIN + url` for relative URLs. If the backend doesn't serve `/avatars/xxx`, the client gets 404!
+        // We can serve it from the backend, or just update minio public url if it's public.
+        // Let's create an endpoint in AdminController to fetch avatar, or VideoController.
+        user.setAvatarUrl(fileName); // We will serve it via /api/profile/avatar/{fileName}
+        userRepository.save(user);
+
         return getUserProfile(userId, userId);
     }
 

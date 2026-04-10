@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Image } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import ScreenHeader from "@/components/ScreenHeader";
 import VideoGrid from "@/components/VideoGrid";
@@ -110,11 +110,24 @@ export default function ProfileDetailScreen() {
         className="flex-1"
       >
         <View className="pt-24 px-6 pb-8 items-center bg-surface-container-low shadow-xl">
-          <View className="w-24 h-24 rounded-full bg-surface-container-highest items-center justify-center mb-4 shadow-[0_0_30px_rgba(255,140,149,0.3)]">
-            <User size={40} color="#ff8c95" />
+          <View className="w-24 h-24 rounded-full bg-surface-container-highest items-center justify-center mb-4 shadow-[0_0_30px_rgba(255,140,149,0.3)] overflow-hidden border border-primary/20">
+            {profile.avatarUrl ? (
+              <Image 
+                source={{ uri: profile.avatarUrl.startsWith('http') ? profile.avatarUrl : `${api.API_ORIGIN}/api/${profile.avatarUrl}` }} 
+                className="w-full h-full" 
+              />
+            ) : (
+              <Text className="text-4xl font-display font-bold text-primary">
+                {(profile.username || 'U').slice(0, 1).toUpperCase()}
+              </Text>
+            )}
           </View>
           
           <Text className="text-3xl font-display font-bold text-white mb-2">@{profile.username}</Text>
+          
+          {profile.bio ? (
+            <Text className="font-body text-gray-400 text-center px-8 mb-4">{profile.bio}</Text>
+          ) : null}
           
           <View className="flex-row items-center gap-x-3 mb-8 bg-surface-container-high px-5 py-2 rounded-2xl">
             {p.role === "admin" || p.role === "moderator" ? (

@@ -1,14 +1,22 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 import * as LegacyFileSystem from 'expo-file-system/legacy';
 import { API_BASE_URL, API_TIMEOUT } from '@/constants/Config';
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`,
   timeout: API_TIMEOUT,
 });
 
+api.interceptors.request.use((config) => {
+  if (config.url && config.url.startsWith('/')) {
+    config.url = config.url.substring(1);
+  }
+  return config;
+});
+
 let authToken: string | null = null;
-const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
+export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
 export interface VideoStats {
   viewCount: number;
@@ -383,6 +391,47 @@ export const updateMyProfile = async (payload: {
 }): Promise<ProfileData> => {
   const response = await api.put('/profile', payload);
   return response.data;
+};
+
+export const uploadAvatar = async (asset: any): Promise<ProfileData> => {
+  if (Platform.OS === 'web') {
+    const formData = new FormData();
+    const res = await fetch(asset.uri);
+    const blob = await res.blob();
+    formData.append('file', blob, `avatar-${Date.now()}.jpg`);
+
+    try {
+      const response = await api.post('profile/avatar', formData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Avatar web upload failed:', error.message);
+      throw error;
+    }
+  } else {
+    // Native mobile upload using Expo FileSystem, much more stable than Axios
+    const baseUrl = api.defaults.baseURL || API_BASE_URL;
+    const finalUrl = baseUrl.endsWith('/') ? `${baseUrl}profile/avatar` : `${baseUrl}/profile/avatar`;
+    
+    try {
+      const response = await LegacyFileSystem.uploadAsync(finalUrl, asset.uri, {
+        fieldName: 'file',
+        httpMethod: 'POST',
+        uploadType: LegacyFileSystem.FileSystemUploadType.MULTIPART,
+        headers: authToken ? {
+          Authorization: `Bearer ${authToken}`
+        } : undefined
+      });
+      
+      if (response.status >= 200 && response.status < 300) {
+        return JSON.parse(response.body);
+      } else {
+        throw new Error(`Upload returned status ${response.status}: ${response.body}`);
+      }
+    } catch (error: any) {
+      console.error('Avatar native upload failed:', error);
+      throw error;
+    }
+  }
 };
 
 export const getUserProfile = async (userId: string): Promise<ProfileData> => {

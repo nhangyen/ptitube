@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import VideoGrid from '@/components/VideoGrid';
@@ -135,10 +135,10 @@ export default function ProfileScreen() {
               <User size={32} color="#ff8c95" />
             </View>
             <Text className="text-3xl font-display font-bold text-white mb-2 text-center tracking-widest">
-              Neon Identify
+              Register User
             </Text>
             <Text className="font-body text-gray-400 text-center px-4">
-              Enter the cinematic universe. Access your profile and connect.
+              Enter the Ptitube Universe. Access your profile and connect.
             </Text>
           </View>
 
@@ -240,15 +240,28 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <View className="w-24 h-24 rounded-full bg-surface-container-highest items-center justify-center mb-4 mt-8 shadow-[0_0_30px_rgba(255,140,149,0.3)] border border-primary/20">
-          <Text className="text-4xl font-display font-bold text-primary">
-            {(profile?.username || user?.username || 'U').slice(0, 1).toUpperCase()}
-          </Text>
+        <View className="w-24 h-24 rounded-full bg-surface-container-highest items-center justify-center mb-4 mt-8 shadow-[0_0_30px_rgba(255,140,149,0.3)] border border-primary/20 overflow-hidden">
+          {(profile?.avatarUrl || user?.avatarUrl) ? (
+            <Image 
+              source={{ uri: (profile?.avatarUrl || user?.avatarUrl)?.startsWith('http') ? (profile?.avatarUrl || user?.avatarUrl) : `${api.API_ORIGIN}/api/${profile?.avatarUrl || user?.avatarUrl}` }} 
+              className="w-full h-full" 
+            />
+          ) : (
+            <Text className="text-4xl font-display font-bold text-primary">
+              {(profile?.username || user?.username || 'U').slice(0, 1).toUpperCase()}
+            </Text>
+          )}
         </View>
         
         <Text className="text-2xl font-display font-bold text-white mb-2">
           @{profile?.username || user?.username}
         </Text>
+        
+        {(profile?.bio || user?.bio) ? (
+          <Text className="font-body text-gray-400 text-center px-8 mb-4">
+            {profile?.bio || user?.bio}
+          </Text>
+        ) : null}
         
         {user?.role && (user.role === 'admin' || user.role === 'moderator') && (
           <View className="flex-row items-center bg-primary-dim/20 px-3 py-1 rounded-full mb-6">

@@ -51,11 +51,12 @@ services:
       MINIO_SECRET_KEY: minio_password
       GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/google-service-account.json
       VIDEO_AI_ENABLED: ${VIDEO_AI_ENABLED:-false}
+      AI_SERVER_URL: http://ai-server:8000
     volumes:
       - ./credentials:/app/credentials:ro
       - ./data:/app/data
     ports:
-      - "8080:8080"
+      - "8088:8080"
     networks:
       - video-net
 

@@ -13,8 +13,13 @@ import com.example.video.repository.UserRepository;
 import com.example.video.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
 
 import java.util.List;
 import java.util.Map;
@@ -178,6 +183,40 @@ public class AdminController {
             return ResponseEntity.ok(adminService.updateProfile(userId, request));
         } catch (RuntimeException exception) {
             return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/profile/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadAvatar(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+        UUID userId = getCurrentUserId(authentication);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Please login first"));
+        }
+        try {
+            return ResponseEntity.ok(adminService.uploadAvatar(userId, file));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+        }
+    }
+
+    // Since we wired minioService inside AdminService, we'll quickly wire it here too for the download.
+    // Or normally we add a fetch method.
+    // Wait, let's wire MinioService directly in AdminController to stream the avatar
+    @Autowired
+    private com.example.video.service.MinioService minioService;
+
+    @GetMapping("/avatars/{fileName:.+}")
+    public ResponseEntity<InputStreamResource> getAvatar(@PathVariable String fileName) {
+        try {
+            java.io.InputStream stream = minioService.getFile("avatars/" + fileName);
+            com.example.video.service.MinioService.StoredObjectInfo metadata = minioService.statObject("avatars/" + fileName);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, metadata.contentType())
+                    .body(new InputStreamResource(stream));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
     }
 
