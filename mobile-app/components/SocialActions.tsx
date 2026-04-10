@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Animated, Share as NativeShare } from 'react-native';
-import { Heart, MessageCircle, Share2, Plus, Check } from 'lucide-react-native';
+import { Heart, MessageCircle, Share2, Plus, Check, Repeat } from 'lucide-react-native';
 import * as api from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -51,6 +51,8 @@ export default function SocialActions({
   const [isLiked, setIsLiked] = useState(initialLiked);
   const [likeCount, setLikeCount] = useState(stats.likeCount);
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
+  const [isReposted, setIsReposted] = useState(initialReposted);
+  const [repostCount, setRepostCount] = useState(stats.repostCount);
   const [shareCount, setShareCount] = useState(stats.shareCount);
 
   const likeScale = useRef(new Animated.Value(1)).current;
@@ -59,8 +61,10 @@ export default function SocialActions({
     setIsLiked(initialLiked);
     setLikeCount(stats.likeCount);
     setIsFollowing(initialFollowing);
+    setIsReposted(initialReposted);
+    setRepostCount(stats.repostCount);
     setShareCount(stats.shareCount);
-  }, [initialLiked, stats, initialFollowing]);
+  }, [initialLiked, stats, initialFollowing, initialReposted]);
 
   const handleLike = async () => {
     Animated.sequence([
@@ -78,7 +82,7 @@ export default function SocialActions({
       if (typeof response?.likeCount === 'number') {
         setLikeCount(response.likeCount);
       }
-    } catch (error) {
+    } catch {
       setIsLiked(!nextLiked);
       setLikeCount((c) => Math.max(0, c + (!nextLiked ? 1 : -1)));
       onLikeChange(!nextLiked);
@@ -92,7 +96,7 @@ export default function SocialActions({
 
     try {
       await api.toggleFollow(userId);
-    } catch (error) {
+    } catch {
       setIsFollowing(!nextFollowing);
       onFollowChange(!nextFollowing);
     }
@@ -109,6 +113,26 @@ export default function SocialActions({
       setShareCount(c => c + 1);
     } catch (error) {
       console.error('Error sharing:', error);
+    }
+  };
+
+  const handleRepost = async () => {
+    const nextReposted = !isReposted;
+    setIsReposted(nextReposted);
+    setRepostCount((count) => Math.max(0, count + (nextReposted ? 1 : -1)));
+    onRepostChange(nextReposted);
+
+    try {
+      const response = nextReposted
+        ? await api.createRepost(videoId)
+        : await api.removeRepost(videoId);
+      if (typeof response?.repostCount === 'number') {
+        setRepostCount(response.repostCount);
+      }
+    } catch {
+      setIsReposted(!nextReposted);
+      setRepostCount((count) => Math.max(0, count + (!nextReposted ? 1 : -1)));
+      onRepostChange(!nextReposted);
     }
   };
 
@@ -156,6 +180,15 @@ export default function SocialActions({
         </View>
         <Text className="text-white/90 mt-1 text-xs font-label font-medium drop-shadow-md">
           {formatCount(stats.commentCount)}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity className="items-center" onPress={handleRepost}>
+        <View className="w-12 h-12 rounded-full items-center justify-center bg-black/30">
+          <Repeat size={26} color={isReposted ? "#29fcf3" : "#ffffff"} strokeWidth={1.7} />
+        </View>
+        <Text className="text-white/90 mt-1 text-xs font-label font-medium drop-shadow-md">
+          {formatCount(repostCount || 0)}
         </Text>
       </TouchableOpacity>
 

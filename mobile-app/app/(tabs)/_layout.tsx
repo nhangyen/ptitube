@@ -120,7 +120,7 @@ export default function TabLayout() {
         options={{
           title: 'Moderate',
           tabBarIcon: ({ color }) => <ShieldAlert size={24} color={color} strokeWidth={2.5} />,
-          href: null,
+          href: isModerator ? '/moderation' : null, // Chỉ hiển thị tab nếu là moderator/admin
         }}
       />
     </Tabs>
