@@ -50,7 +50,7 @@ export default function EditProfileScreen() {
     try {
       setSaving(true);
       let newAvatarUrl = avatarUrl;
-      
+
       // Attempt image upload first if an image is selected
       if (selectedImage) {
         try {
@@ -68,7 +68,7 @@ export default function EditProfileScreen() {
         bio,
         avatarUrl: newAvatarUrl,
       });
-      
+
       await updateLocalUser({
         username: updated.username,
         avatarUrl: updated.avatarUrl,
@@ -99,12 +99,12 @@ export default function EditProfileScreen() {
         title="Configure Identity"
         subtitle="Update public holographic network profile"
         onBack={() => router.back()}
-        
+
       />
 
       <View className="px-6 py-6 pb-24">
         <View className="items-center mb-8">
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={pickImage}
             className="w-24 h-24 rounded-full bg-surface-container-highest items-center justify-center shadow-[0_0_30px_rgba(255,140,149,0.3)] border border-primary/20 mb-4 overflow-hidden relative"
           >
@@ -132,7 +132,7 @@ export default function EditProfileScreen() {
             className="bg-surface-container-highest rounded-2xl text-white font-body text-base px-5 py-4 mb-6 border border-outline-variant/15"
             value={username}
             onChangeText={setUsername}
-            placeholder="Ghost in the shell"
+            placeholder="Enter your username"
             placeholderTextColor="#888"
             autoCapitalize="none"
           />
@@ -144,7 +144,7 @@ export default function EditProfileScreen() {
             className="bg-surface-container-highest rounded-2xl text-white font-body text-base px-5 py-4 mb-6 border border-outline-variant/15 min-h-[120px]"
             value={bio}
             onChangeText={setBio}
-            placeholder="Link data stream..."
+            placeholder="Describe yourself..."
             placeholderTextColor="#888"
             multiline
             numberOfLines={4}
@@ -154,7 +154,7 @@ export default function EditProfileScreen() {
           <Text className="text-secondary font-label text-sm uppercase tracking-widest mb-3 ml-2">
             Profile visual
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={pickImage}
             className="bg-surface-container-highest rounded-2xl px-5 py-4 mb-8 border border-outline-variant/15 flex-row items-center justify-center"
           >
@@ -164,7 +164,7 @@ export default function EditProfileScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-primary-dim rounded-full py-4 flex-row items-center justify-center relative shadow-[0_4px_20px_rgba(232,0,72,0.4)]"
             onPress={handleSave}
             disabled={saving}
