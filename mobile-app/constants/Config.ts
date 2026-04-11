@@ -5,6 +5,6 @@
 
 
 
-const HOST_IP = "192.168.1.78 || {YOUR_IP}"; // Thay bằng IP của bạn nếu khác
-export const API_BASE_URL = `http://${HOST_IP}:8080/api`;
+const HOST_IP = "192.168.1.203"; // Thay bằng IP của bạn nếu khác
+export const API_BASE_URL = `http://${HOST_IP}:8088/api`;
 export const API_TIMEOUT = 15000; // 15 seconds timeout

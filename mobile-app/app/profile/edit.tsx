@@ -97,7 +97,7 @@ export default function EditProfileScreen() {
     <ScrollView className="flex-1 bg-surface">
       <ScreenHeader
         title="Configure Identity"
-        subtitle="Update public holographic network profile"
+        subtitle="Update public profile"
         onBack={() => router.back()}
 
       />
