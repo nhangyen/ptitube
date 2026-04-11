@@ -135,6 +135,16 @@ public class ModerationController {
         return ResponseEntity.ok(Map.of("message", "Video rejected"));
     }
 
+    // ==================== REPORTS ====================
+
+    @GetMapping("/queue/{queueId}/reports")
+    public ResponseEntity<?> getVideoReports(@PathVariable UUID queueId, Authentication authentication) {
+        if (!isModerator(authentication)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Access denied"));
+        }
+        return ResponseEntity.ok(moderationService.getVideoReports(queueId));
+    }
+
     // ==================== SCENE TAGS ====================
 
     @PostMapping("/scenes/{sceneId}/tags")

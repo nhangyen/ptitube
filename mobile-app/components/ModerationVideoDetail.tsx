@@ -66,6 +66,7 @@ export default function ModerationVideoDetail({ item, onBack }: Props) {
   const [reviewNotes, setReviewNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(item.status);
+  const [reports, setReports] = useState<{ id: string; reason: string; reporterUsername: string; createdAt: string }[]>([]);
   const selectedSceneIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -96,7 +97,10 @@ export default function ModerationVideoDetail({ item, onBack }: Props) {
   useEffect(() => {
     setLoading(true);
     void fetchScenes();
-  }, [fetchScenes]);
+    if (item.reportCount > 0) {
+      api.getVideoReports(item.queueId).then(setReports).catch(console.error);
+    }
+  }, [fetchScenes, item.queueId, item.reportCount]);
 
   const handleAssign = async () => {
     setAssigning(true);
@@ -235,11 +239,24 @@ export default function ModerationVideoDetail({ item, onBack }: Props) {
         {/* Report warning */}
         {item.reportCount > 0 && (
           <View style={styles.reportWarning}>
-            <Flag size={16} color="#e80048" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.reportWarningTitle}>{item.reportCount} user report{item.reportCount > 1 ? 's' : ''}</Text>
-              <Text style={styles.reportWarningDesc}>This video has been flagged by the community</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Flag size={16} color="#e80048" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reportWarningTitle}>{item.reportCount} user report{item.reportCount > 1 ? 's' : ''}</Text>
+                <Text style={styles.reportWarningDesc}>This video has been flagged by the community</Text>
+              </View>
             </View>
+            {reports.length > 0 && (
+              <View style={styles.reportList}>
+                {reports.map((r) => (
+                  <View key={r.id} style={styles.reportItem}>
+                    <Text style={styles.reportUser}>@{r.reporterUsername}</Text>
+                    <Text style={styles.reportReason}>{r.reason}</Text>
+                    <Text style={styles.reportDate}>{new Date(r.createdAt).toLocaleDateString()}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -456,6 +473,17 @@ const styles = StyleSheet.create({
   },
   reportWarningTitle: { color: '#ff8c95', fontSize: 13, fontWeight: '700' },
   reportWarningDesc: { color: '#6b7280', fontSize: 11, marginTop: 2 },
+  reportList: { marginTop: 12, gap: 8 },
+  reportItem: {
+    backgroundColor: 'rgba(232,0,72,0.06)',
+    borderRadius: 8,
+    padding: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: '#e80048',
+  },
+  reportUser: { color: '#ff8c95', fontSize: 11, fontWeight: '700' },
+  reportReason: { color: '#d1d5db', fontSize: 12, marginTop: 4 },
+  reportDate: { color: '#4b5563', fontSize: 10, marginTop: 4 },
   aiWarning: {
     flexDirection: 'row',
     alignItems: 'center',

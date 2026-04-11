@@ -20,5 +20,6 @@ public class ModerationQueueResponse {
     private Integer sceneCount;
     private Long reportCount;
     private String videoStatus;
+    private String autoFlags;
     private LocalDateTime createdAt;
 }

@@ -208,8 +208,24 @@ public class ModerationService {
         resp.setSceneCount((int) sceneRepository.countByVideoId(queue.getVideo().getId()));
         resp.setReportCount(reportRepository.countByVideoId(queue.getVideo().getId()));
         resp.setVideoStatus(queue.getVideo().getStatus().name());
+        resp.setAutoFlags(queue.getAutoFlags());
         resp.setCreatedAt(queue.getCreatedAt());
         return resp;
+    }
+
+    public List<Map<String, Object>> getVideoReports(UUID queueId) {
+        ModerationQueue queue = queueRepository.findById(queueId)
+                .orElseThrow(() -> new RuntimeException("Queue item not found"));
+        List<Report> reports = reportRepository.findByVideoId(queue.getVideo().getId());
+        return reports.stream()
+                .filter(r -> "open".equals(r.getStatus()))
+                .map(r -> Map.<String, Object>of(
+                        "id", r.getId(),
+                        "reason", r.getReason(),
+                        "reporterUsername", r.getReporter().getUsername(),
+                        "createdAt", r.getCreatedAt().toString()
+                ))
+                .collect(Collectors.toList());
     }
 
     private SceneDetailResponse toSceneDetail(VideoScene scene) {

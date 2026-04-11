@@ -47,6 +47,9 @@ public class AdminService {
     @Autowired
     private VideoRepostRepository videoRepostRepository;
 
+    @Autowired
+    private ModerationQueueRepository moderationQueueRepository;
+
     // ==================== CONTENT MODERATION ====================
 
     public List<Report> getOpenReports() {
@@ -74,7 +77,33 @@ public class AdminService {
         report.setReason(reason);
         report.setStatus("open");
 
-        return reportRepository.save(report);
+        Report savedReport = reportRepository.save(report);
+
+        // Re-queue or escalate in moderation queue
+        List<ModerationQueue> existingEntries = moderationQueueRepository.findByVideoId(videoId);
+
+        boolean hasActiveEntry = existingEntries.stream()
+                .anyMatch(q -> "pending".equals(q.getStatus()) || "in_review".equals(q.getStatus()));
+
+        if (hasActiveEntry) {
+            // Escalate priority on active entries
+            existingEntries.stream()
+                    .filter(q -> "pending".equals(q.getStatus()) || "in_review".equals(q.getStatus()))
+                    .forEach(q -> {
+                        q.setPriority("high");
+                        moderationQueueRepository.save(q);
+                    });
+        } else {
+            // All entries are "reviewed" or none exist — create new entry
+            ModerationQueue newEntry = new ModerationQueue();
+            newEntry.setVideo(video);
+            newEntry.setPriority("high");
+            newEntry.setStatus("pending");
+            newEntry.setAutoFlags("{\"source\":\"user_report\"}");
+            moderationQueueRepository.save(newEntry);
+        }
+
+        return savedReport;
     }
 
     @Transactional

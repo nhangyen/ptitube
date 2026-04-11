@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Animated, Share as NativeShare } from 'react-native';
-import { Heart, MessageCircle, Share2, Plus, Check, Repeat } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, Animated, Share as NativeShare, Modal, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { Heart, MessageCircle, Share2, Plus, Check, Repeat, Flag } from 'lucide-react-native';
 import * as api from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -53,6 +53,10 @@ export default function SocialActions({
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [isReposted, setIsReposted] = useState(initialReposted);
   const [repostCount, setRepostCount] = useState(stats.repostCount);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportSubmitted, setReportSubmitted] = useState(false);
 
   const likeScale = useRef(new Animated.Value(1)).current;
 
@@ -110,6 +114,26 @@ export default function SocialActions({
       });
     } catch (error) {
       console.error('Error sharing:', error);
+    }
+  };
+
+  const handleReport = async () => {
+    if (reportReason.trim().length < 10) {
+      Alert.alert('Error', 'Please describe the issue in at least 10 characters.');
+      return;
+    }
+    setReportSubmitting(true);
+    try {
+      await api.reportVideo(videoId, reportReason.trim());
+      setReportModalVisible(false);
+      setReportReason('');
+      setReportSubmitted(true);
+      Alert.alert('Report Submitted', 'Thank you for helping keep the community safe.');
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || error?.message || 'Failed to submit report';
+      Alert.alert('Error', msg);
+    } finally {
+      setReportSubmitting(false);
     }
   };
 
@@ -194,6 +218,65 @@ export default function SocialActions({
           <Share2 size={26} color="#ffffff" strokeWidth={1.5} />
         </View>
       </TouchableOpacity>
+
+      {user?.id !== userId && (
+        <TouchableOpacity className="items-center" onPress={() => setReportModalVisible(true)}>
+          <View className="w-12 h-12 rounded-full items-center justify-center bg-black/30">
+            <Flag size={24} color={reportSubmitted ? "#f59e0b" : "#ffffff"} strokeWidth={1.5} />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReportModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1 justify-center items-center bg-black/60 px-6"
+        >
+          <View className="w-full bg-surface rounded-2xl p-5">
+            <Text className="text-white text-lg font-headline font-bold mb-1">Report Video</Text>
+            <Text className="text-white/50 text-xs mb-4">Describe why this video should be reviewed</Text>
+
+            <TextInput
+              className="bg-surface-container-high text-white rounded-xl p-4 min-h-[120px] text-sm"
+              placeholder="Describe the issue..."
+              placeholderTextColor="#ffffff50"
+              multiline
+              textAlignVertical="top"
+              maxLength={500}
+              value={reportReason}
+              onChangeText={setReportReason}
+              editable={!reportSubmitting}
+            />
+
+            <Text className="text-white/30 text-xs text-right mt-1 mb-4">{reportReason.length}/500</Text>
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                className="flex-1 py-3 rounded-xl bg-surface-container-high items-center"
+                onPress={() => { setReportModalVisible(false); setReportReason(''); }}
+                disabled={reportSubmitting}
+              >
+                <Text className="text-white font-label font-medium">Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className={`flex-1 py-3 rounded-xl items-center ${reportReason.trim().length < 10 || reportSubmitting ? 'bg-error/30' : 'bg-error'}`}
+                onPress={handleReport}
+                disabled={reportReason.trim().length < 10 || reportSubmitting}
+              >
+                <Text className="text-white font-label font-bold">
+                  {reportSubmitting ? 'Submitting...' : 'Submit Report'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }

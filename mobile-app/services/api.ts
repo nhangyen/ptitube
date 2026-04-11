@@ -371,6 +371,11 @@ export const reportVideo = async (videoId: string, reason: string) => {
   return response.data;
 };
 
+export const getVideoReports = async (queueId: string) => {
+  const response = await api.get(`/moderation/queue/${queueId}/reports`);
+  return response.data;
+};
+
 export const getMyProfile = async (): Promise<ProfileData> => {
   const response = await api.get('/profile');
   return response.data;
