@@ -60,6 +60,8 @@ public class VideoService {
         video.setFormat(normalizeContentType(file.getContentType()));
         video.setUser(user);
         video.setStatus(VideoStatus.active);
+        int count = (int) videoRepository.count();
+        video.setNumericId(count + 1);
 
         Video saved = videoRepository.save(video);
         tagService.assignHashtagsToVideo(saved, saved.getTitle(), saved.getDescription(), user.getId());

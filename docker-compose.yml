@@ -67,6 +67,7 @@ services:
     restart: always
     volumes:
       - ./data:/app/data
+      - ./recommendation/checkpoints:/app/checkpoints
     ports:
       - "8000:8000"
     networks:
