@@ -1,3 +1,18 @@
+/**
+ * Màn hình kiểm duyệt video (Moderation Tab) — Mobile App.
+ *
+ * Vai trò: Cổng vào duy nhất cho Moderator/Admin để xem hàng chờ kiểm duyệt,
+ * lọc theo trạng thái, và mở chi tiết video để ra quyết định.
+ *
+ * Cấu trúc 2 view luân phiên:
+ *   1. Danh sách hàng chờ (mặc định) — FlatList các card video.
+ *   2. Chi tiết video (khi selectedItem ≠ null) — render ModerationVideoDetail.
+ *
+ * Quyền: Chỉ hiển thị nội dung khi user.role là 'admin' hoặc 'moderator'.
+ * Người dùng thường thấy màn hình "Access Denied" với biểu tượng Shield.
+ *
+ * @author Hoàng Sơn Lâm (B22DCCN477)
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, StyleSheet, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,12 +21,17 @@ import * as api from '@/services/api';
 import ModerationVideoDetail from '@/components/ModerationVideoDetail';
 import { Shield, AlertTriangle, Clock, CheckCircle2, Flag, Eye, Film } from 'lucide-react-native';
 
+/** Ba tab trạng thái — khớp với enum trên backend (ModerationQueue.status). */
 const STATUS_FILTERS = [
   { key: 'pending', label: 'Pending', icon: Clock },
   { key: 'in_review', label: 'In Review', icon: Eye },
   { key: 'reviewed', label: 'Reviewed', icon: CheckCircle2 },
 ];
 
+/**
+ * Cấu trúc một bản ghi hàng chờ trả về từ API.
+ * Khớp với DTO ModerationQueueResponse.java ở backend.
+ */
 interface QueueItem {
   queueId: string;
   videoId: string;
@@ -29,14 +49,25 @@ interface QueueItem {
   createdAt: string;
 }
 
+/** Bộ đếm số lượng bản ghi theo từng trạng thái (cho badge tab). */
 interface QueueStats {
   pending: number;
   in_review: number;
   reviewed: number;
 }
 
+/** Chiều cao thanh tab dưới cùng — dùng để chừa padding cho FlatList. */
 const TAB_BAR_HEIGHT = 60;
 
+/**
+ * Component chính của màn hình Moderation.
+ *
+ * State quản lý:
+ * - items: danh sách card video trong hàng chờ.
+ * - stats: bộ đếm cho 3 tab.
+ * - activeFilter: tab đang chọn ('pending' | 'in_review' | 'reviewed').
+ * - selectedItem: khi user bấm vào card, sẽ điều hướng sang màn chi tiết.
+ */
 export default function ModerationScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -47,8 +78,10 @@ export default function ModerationScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
 
+  // Kiểm tra quyền truy cập — vai trò 'admin' hoặc 'moderator' mới được vào.
   const isModerator = user?.role === 'admin' || user?.role === 'moderator';
 
+  /** Lấy số lượng bản ghi cho 3 tab (GET /api/moderation/stats). */
   const fetchStats = useCallback(async () => {
     try {
       const data = await api.getModerationStats();
@@ -58,6 +91,10 @@ export default function ModerationScreen() {
     }
   }, []);
 
+  /**
+   * Lấy danh sách hàng chờ theo tab đang active.
+   * Sẽ chạy lại tự động khi activeFilter thay đổi (qua useEffect).
+   */
   const fetchQueue = useCallback(async () => {
     try {
       const data = await api.getModerationQueue(activeFilter);
@@ -78,12 +115,18 @@ export default function ModerationScreen() {
     }
   }, [activeFilter, isModerator, fetchQueue, fetchStats]);
 
+  /** Pull-to-refresh: tải lại cả queue lẫn stats. */
   const onRefresh = () => {
     setRefreshing(true);
     fetchQueue();
     fetchStats();
   };
 
+  /**
+   * Xử lý khi quay lại từ màn chi tiết.
+   * Sau khi moderator approve/reject/sửa tag, cần refresh lại danh sách
+   * để phản ánh trạng thái mới (vd: video vừa approve sẽ biến mất khỏi tab "pending").
+   */
   const handleBackFromDetail = () => {
     setSelectedItem(null);
     fetchQueue();
@@ -111,6 +154,10 @@ export default function ModerationScreen() {
     );
   }
 
+  /**
+   * Trả về bộ màu cho badge ưu tiên (background, text, border).
+   * Bốn mức từ thấp đến cao: default → normal → high → urgent.
+   */
   const getPriorityStyle = (priority: string) => {
     switch (priority?.toLowerCase()) {
       case 'urgent': return { bg: '#e80048', text: '#fff', border: '#ff3370' };
@@ -120,6 +167,7 @@ export default function ModerationScreen() {
     }
   };
 
+  /** Chuyển ISO datetime string thành "Xm ago" / "Xh ago" / "Xd ago". */
   const getTimeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const minutes = Math.floor(diff / 60000);

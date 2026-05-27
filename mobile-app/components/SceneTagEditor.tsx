@@ -1,3 +1,23 @@
+/**
+ * Component chỉnh sửa tag cho một cảnh (Scene).
+ *
+ * Vai trò: Cho phép moderator xem chi tiết các tag AI đã gán, xoá tag không phù hợp,
+ * và thêm tag thủ công từ từ điển tag của hệ thống.
+ *
+ * Hiển thị 2 nhóm tag riêng biệt:
+ *   - "AI Detected" (source='ai') — có badge confidence (%); highlight đỏ khi ≥ 0.8.
+ *   - "Manual Tags" (source='admin') — confidence = 1.0, hiển thị icon shield.
+ *
+ * Modal "Add Tag":
+ *   - Lấy danh sách tag active từ GET /api/moderation/tags.
+ *   - Có ô search lọc tag theo tên.
+ *   - Bấm chọn → gọi POST /api/moderation/scenes/{sceneId}/tags.
+ *
+ * Sau mỗi lần thêm/xoá tag, gọi callback {@link Props.onTagsChanged}
+ * để component cha refetch lại dữ liệu cảnh từ backend (cảnh chuyển sang 'revised').
+ *
+ * @author Hoàng Sơn Lâm (B22DCCN477)
+ */
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,6 +32,7 @@ import {
 import * as api from '@/services/api';
 import { Plus, X, Bot, Shield, Search } from 'lucide-react-native';
 
+/** Tag đang được gán cho cảnh (đã được backend xác nhận). */
 interface TagData {
   id: string;
   name: string;
@@ -30,12 +51,14 @@ interface SceneData {
   tags: TagData[];
 }
 
+/** Tag từ điển hệ thống (chưa gán cho cảnh nào). */
 interface AvailableTag {
   id: string;
   name: string;
   category: string;
 }
 
+/** Props: cảnh hiện tại + callback thông báo cha refetch sau khi sửa tag. */
 interface Props {
   scene: SceneData;
   onTagsChanged: () => void;
@@ -47,6 +70,7 @@ export default function SceneTagEditor({ scene, onTagsChanged }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingTag, setLoadingTag] = useState<string | null>(null);
 
+  /** Lấy từ điển tag active từ backend, gọi khi modal Add Tag được mở. */
   const fetchAvailableTags = async () => {
     try {
       const tags = await api.getModerationTags();
@@ -62,6 +86,11 @@ export default function SceneTagEditor({ scene, onTagsChanged }: Props) {
     }
   }, [showAddModal]);
 
+  /**
+   * Thêm một tag thủ công vào cảnh.
+   * POST /api/moderation/scenes/{sceneId}/tags với body { tagId }.
+   * Backend tự set source='admin', confidence=1.0, và cảnh → 'revised'.
+   */
   const handleAddTag = async (tagId: string) => {
     setLoadingTag(tagId);
     try {
@@ -76,6 +105,11 @@ export default function SceneTagEditor({ scene, onTagsChanged }: Props) {
     }
   };
 
+  /**
+   * Xoá một tag (cả AI và admin) khỏi cảnh.
+   * DELETE /api/moderation/scenes/{sceneId}/tags/{tagId}.
+   * Cảnh sẽ chuyển sang 'revised'.
+   */
   const handleRemoveTag = async (tagId: string) => {
     setLoadingTag(tagId);
     try {

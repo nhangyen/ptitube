@@ -1,3 +1,22 @@
+/**
+ * Component màn hình chi tiết video kiểm duyệt.
+ *
+ * Hiển thị toàn bộ thông tin moderator cần để ra quyết định:
+ *   - Thumbnail + thông tin video (uploader, priority, AI status, số cảnh).
+ *   - Cảnh báo đỏ nếu có user reports (kèm chi tiết từng report).
+ *   - Cảnh báo vàng nếu có cảnh bị AI flag (confidence ≥ 0.8).
+ *   - Timeline cảnh theo chiều ngang, mỗi cảnh là một thumbnail với badge tag.
+ *   - Panel tag chi tiết cho cảnh đang chọn (có thể chỉnh sửa qua SceneTagEditor).
+ *   - Thanh action bar cố định dưới cùng: Reject (đỏ) / Approve (xanh).
+ *
+ * Lifecycle:
+ *   1. Mount → fetch danh sách scenes và reports.
+ *   2. Moderator nhận video → assign API → status đổi sang in_review.
+ *   3. Sửa tag cảnh → SceneTagEditor gọi API và refetch lại scenes.
+ *   4. Bấm Approve/Reject → gọi API → quay lại danh sách hàng chờ.
+ *
+ * @author Hoàng Sơn Lâm (B22DCCN477)
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -17,6 +36,7 @@ import { ArrowLeft, User, Gauge, Bot, Film, Flag, CheckCircle2, XCircle, Shield,
 
 const TAB_BAR_HEIGHT = 60;
 
+/** Cấu trúc bản ghi hàng chờ truyền từ màn hình danh sách sang. */
 interface QueueItem {
   queueId: string;
   videoId: string;
@@ -31,14 +51,17 @@ interface QueueItem {
   videoStatus: string;
 }
 
+/** Tag áp dụng cho một cảnh — nguồn 'ai' hoặc 'admin'. */
 interface TagData {
   id: string;
   name: string;
   category: string;
   source: string;
+  /** Điểm tin cậy [0.0, 1.0]; null với tag admin (luôn được coi là 1.0). */
   confidence: number | null;
 }
 
+/** Một cảnh trong video, với danh sách tag đã gán. */
 interface SceneData {
   sceneId: string;
   sceneIndex: number;
@@ -46,15 +69,26 @@ interface SceneData {
   endTime: number;
   thumbnailUrl: string | null;
   aiSummary: string | null;
+  /** Trạng thái cảnh: 'auto_tagged' | 'revised'. */
   status: string;
   tags: TagData[];
 }
 
+/** Props vào component: bản ghi hàng chờ + callback quay lại. */
 interface Props {
   item: QueueItem;
   onBack: () => void;
 }
 
+/**
+ * Component chính — render toàn bộ giao diện chi tiết kiểm duyệt.
+ *
+ * State chính:
+ * - scenes / selectedScene: danh sách cảnh và cảnh đang focus.
+ * - reports: các báo cáo người dùng còn open.
+ * - currentStatus: trạng thái hàng chờ (cho phép update sau khi assign).
+ * - actionLoading: cờ loading cho từng nút (assign/approve/reject).
+ */
 export default function ModerationVideoDetail({ item, onBack }: Props) {
   const insets = useSafeAreaInsets();
   const bottomOffset = TAB_BAR_HEIGHT + insets.bottom;
@@ -102,6 +136,11 @@ export default function ModerationVideoDetail({ item, onBack }: Props) {
     }
   }, [fetchScenes, item.queueId, item.reportCount]);
 
+  /**
+   * Moderator nhận video vào xử lý.
+   * Gọi POST /api/moderation/queue/{id}/assign — backend cập nhật assigned_to
+   * và status sang 'in_review'.
+   */
   const handleAssign = async () => {
     setAssigning(true);
     try {
@@ -114,6 +153,10 @@ export default function ModerationVideoDetail({ item, onBack }: Props) {
     }
   };
 
+  /**
+   * Phê duyệt video: hiển thị Alert xác nhận, sau khi confirm gọi API approve.
+   * Video sẽ ở trạng thái active (lên feed), hàng chờ chuyển sang reviewed.
+   */
   const handleApprove = () => {
     Alert.alert(
       'Approve Video',
@@ -139,6 +182,15 @@ export default function ModerationVideoDetail({ item, onBack }: Props) {
     );
   };
 
+  /**
+   * Từ chối (ban) video. Yêu cầu BẮT BUỘC có lý do — nếu reviewNotes rỗng
+   * sẽ hiển thị cảnh báo và auto-expand ô textarea.
+   *
+   * Side effects:
+   * - videos.status → 'banned'.
+   * - Tất cả reports.status còn 'open' của video này → 'resolved'.
+   * - Một bản ghi moderation_actions với action='reject' được ghi audit.
+   */
   const handleReject = () => {
     if (!reviewNotes.trim()) {
       Alert.alert('Reason Required', 'Please provide a reason before rejecting.');

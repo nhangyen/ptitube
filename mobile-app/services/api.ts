@@ -371,6 +371,11 @@ export const reportVideo = async (videoId: string, reason: string) => {
   return response.data;
 };
 
+/**
+ * Lấy danh sách báo cáo vi phạm còn open của video trong hàng chờ.
+ * Phục vụ moderator xem ngữ cảnh trước khi ra quyết định reject/approve.
+ * (Phần API thuộc phạm vi kiểm duyệt — Hoàng Sơn Lâm)
+ */
 export const getVideoReports = async (queueId: string) => {
   const response = await api.get(`/moderation/queue/${queueId}/reports`);
   return response.data;
@@ -473,56 +478,106 @@ export const markAllNotificationsRead = async () => {
   return response.data;
 };
 
+// ────────────────────────────────────────────────────────────────────────────
+// MODERATION API
+// Phạm vi cá nhân của Hoàng Sơn Lâm (B22DCCN477).
+// Tất cả endpoint yêu cầu JWT của user có role 'admin' hoặc 'moderator',
+// nếu không sẽ nhận về HTTP 403.
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lấy danh sách hàng chờ kiểm duyệt, có thể lọc theo trạng thái và phân trang.
+ * @param status 'pending' | 'in_review' | 'reviewed'; bỏ trống = lấy tất cả.
+ * @returns object dạng Page (Spring Data): { content, totalElements, totalPages, ... }.
+ */
 export const getModerationQueue = async (status?: string, page: number = 0, size: number = 20) => {
   const response = await api.get('/moderation/queue', { params: { status, page, size } });
   return response.data;
 };
 
+/**
+ * Lấy bộ đếm số bản ghi theo từng trạng thái — cho badge trên các tab.
+ * @returns { pending: number, in_review: number, reviewed: number }
+ */
 export const getModerationStats = async () => {
   const response = await api.get('/moderation/stats');
   return response.data;
 };
 
+/** Lấy chi tiết một bản ghi hàng chờ theo UUID. */
 export const getModerationItem = async (queueId: string) => {
   const response = await api.get(`/moderation/queue/${queueId}`);
   return response.data;
 };
 
+/**
+ * Lấy danh sách cảnh của video kèm tag AI/admin.
+ * Sắp xếp theo sceneIndex tăng dần.
+ */
 export const getVideoScenes = async (queueId: string) => {
   const response = await api.get(`/moderation/queue/${queueId}/scenes`);
   return response.data;
 };
 
+/**
+ * Moderator hiện tại nhận video vào xử lý.
+ * Backend cập nhật ModerationQueue.assignedTo và status → 'in_review'.
+ */
 export const assignModerationItem = async (queueId: string) => {
   const response = await api.post(`/moderation/queue/${queueId}/assign`);
   return response.data;
 };
 
+/**
+ * Đánh dấu hàng chờ là đã review tag (không kèm phán quyết video).
+ * @param notes ghi chú (tuỳ chọn) sẽ được lưu vào moderation_actions.reason.
+ */
 export const markReviewed = async (queueId: string, notes?: string) => {
   const response = await api.post(`/moderation/queue/${queueId}/review`, { reason: notes });
   return response.data;
 };
 
+/**
+ * Phê duyệt video.
+ * Side effects backend: videos.status → 'active', queue.status → 'reviewed',
+ * insert ModerationAction(action='approve').
+ */
 export const approveVideo = async (queueId: string, reason?: string) => {
   const response = await api.post(`/moderation/queue/${queueId}/approve`, { reason });
   return response.data;
 };
 
+/**
+ * Từ chối (ban) video. Trên UI, reason là BẮT BUỘC.
+ * Side effects backend: videos.status → 'banned', tất cả reports liên quan
+ * → 'resolved', insert ModerationAction(action='reject').
+ */
 export const rejectVideo = async (queueId: string, reason?: string) => {
   const response = await api.post(`/moderation/queue/${queueId}/reject`, { reason });
   return response.data;
 };
 
+/**
+ * Thêm tag thủ công vào một cảnh.
+ * Backend tự set source='admin', confidence=1.0, cảnh → 'revised'.
+ */
 export const addSceneTag = async (sceneId: string, tagId: string) => {
   const response = await api.post(`/moderation/scenes/${sceneId}/tags`, { tagId });
   return response.data;
 };
 
+/**
+ * Xoá tag khỏi cảnh (cả tag AI lẫn admin). Cảnh chuyển sang 'revised'.
+ */
 export const removeSceneTag = async (sceneId: string, tagId: string) => {
   const response = await api.delete(`/moderation/scenes/${sceneId}/tags/${tagId}`);
   return response.data;
 };
 
+/**
+ * Lấy toàn bộ tag active trong từ điển hệ thống.
+ * Dùng cho modal "Add Tag" trong SceneTagEditor.
+ */
 export const getModerationTags = async () => {
   const response = await api.get('/moderation/tags');
   return response.data;
