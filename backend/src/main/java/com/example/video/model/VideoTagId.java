@@ -6,6 +6,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
+/**
+ * Khóa chính composite cho entity {@link VideoTag}.
+ * Dùng làm {@code @IdClass} để JPA nhận diện khóa compound {@code (videoId, tagId)}.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

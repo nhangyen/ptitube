@@ -7,6 +7,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Entity đại diện cho lượt repost video của người dùng lên feed cá nhân.
+ *
+ * <p>Unique constraint {@code (user_id, video_id)} đảm bảo mỗi người chỉ repost
+ * một video một lần. Repost được hiển thị trên profile và feed của người repost,
+ * kèm thông tin người repost để phân biệt với video gốc.
+ */
 @Entity
 @Table(
         name = "video_reposts",

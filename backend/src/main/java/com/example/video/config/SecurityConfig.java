@@ -18,6 +18,20 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Cấu hình Spring Security cho toàn bộ ứng dụng.
+ *
+ * <p>Chính sách bảo mật:
+ * <ul>
+ *   <li>CSRF bị tắt (ứng dụng dùng JWT, không dùng session cookie).</li>
+ *   <li>CORS cho phép tất cả origin (chỉ dùng khi phát triển; cần giới hạn khi lên production).</li>
+ *   <li>Tất cả request đều được phép đi qua tầng Spring Security — kiểm tra quyền thực sự
+ *       được thực hiện ở cấp Controller/Service bằng cách kiểm tra role người dùng.</li>
+ *   <li>Session policy là STATELESS: server không lưu session, mỗi request phải mang JWT.</li>
+ *   <li>{@link JwtAuthenticationFilter} được cài trước {@link UsernamePasswordAuthenticationFilter}
+ *       để giải mã JWT và đặt Authentication vào SecurityContext.</li>
+ * </ul>
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -28,6 +42,13 @@ public class SecurityConfig {
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
 
+    /**
+     * Cấu hình chuỗi filter bảo mật: tắt CSRF, bật CORS, STATELESS session, thêm JWT filter.
+     *
+     * @param http đối tượng HttpSecurity do Spring inject
+     * @return SecurityFilterChain đã được cấu hình
+     * @throws Exception nếu cấu hình không hợp lệ
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -43,6 +64,12 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Cấu hình CORS: cho phép tất cả origin, method GET/POST/PUT/DELETE/OPTIONS và header.
+     * <p><b>Lưu ý production:</b> thay {@code "*"} bằng danh sách domain cụ thể.
+     *
+     * @return CorsConfigurationSource để Spring Security áp dụng
+     */
     @Bean
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();

@@ -1,3 +1,11 @@
+/**
+ * Màn hình Thông báo — hiển thị danh sách thông báo của user, phân loại theo loại sự kiện.
+ *
+ * - Tự động refresh khi màn hình được focus.
+ * - Đánh dấu đã đọc từng thông báo khi tap, hoặc đánh dấu tất cả qua nút "Đọc tất cả".
+ * - Cập nhật `unreadCount` trong NotificationsContext ngay lập tức (optimistic update).
+ * - Điều hướng đến video/profile liên quan khi tap thông báo (nếu có videoId/actor).
+ */
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,

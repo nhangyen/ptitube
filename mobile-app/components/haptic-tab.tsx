@@ -1,3 +1,7 @@
+/**
+ * HapticTab — wrapper cho tab bar button với haptic feedback.
+ * Trên iOS, phát rung nhẹ (Light impact) khi user nhấn vào tab.
+ */
 import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
 import * as Haptics from 'expo-haptics';

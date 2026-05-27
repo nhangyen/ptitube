@@ -1,3 +1,11 @@
+/**
+ * Cấu hình kết nối API của ứng dụng.
+ *
+ * HOST_IP cần được cập nhật tùy môi trường:
+ * - `10.0.2.2`    — Android Emulator (host machine)
+ * - IP thực máy   — Thiết bị thật hoặc Expo Go (chạy `ipconfig` để xem)
+ * - `localhost`   — Chỉ dùng trên web
+ */
 // Sử dụng IP máy tính của bạn (chạy `ipconfig` để xem)
 // - 10.0.2.2: Dùng cho Android Emulator
 // - 10.3.252.224: IP thực của máy (dùng cho thiết bị thật/Expo Go)

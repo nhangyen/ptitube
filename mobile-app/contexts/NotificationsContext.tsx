@@ -1,3 +1,15 @@
+/**
+ * Context quản lý số thông báo chưa đọc toàn ứng dụng.
+ *
+ * Cung cấp:
+ * - `unreadCount` — số thông báo chưa đọc, dùng để hiển thị badge trên tab Alerts.
+ * - `refreshUnreadCount` — gọi API để đồng bộ lại số chưa đọc từ server.
+ * - `setUnreadCount` / `decrementUnreadCount` / `clearUnreadCount` — cập nhật local counter
+ *   ngay lập tức (optimistic update) khi user đọc thông báo, không cần refetch.
+ *
+ * Tự động fetch khi token thay đổi (đăng nhập/đăng xuất).
+ * Hook `useNotifications()` ném Error nếu dùng ngoài `NotificationsProvider`.
+ */
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import * as api from '@/services/api';

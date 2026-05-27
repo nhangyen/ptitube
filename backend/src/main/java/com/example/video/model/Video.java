@@ -11,15 +11,33 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Entity đại diện cho video trong hệ thống.
+ *
+ * <p>Vòng đời trạng thái video:
+ * <ul>
+ *   <li>{@code pending} — Vừa upload, chưa phân tích AI.</li>
+ *   <li>{@code active} — Đang hiển thị trên feed (sau khi AI phân tích xong).</li>
+ *   <li>{@code banned} — Bị kiểm duyệt từ chối hoặc admin ẩn.</li>
+ * </ul>
+ *
+ * <p>Trường {@code videoUrl} bị ẩn khỏi JSON ({@code @JsonIgnore}). Thay vào đó,
+ * {@code getStreamUrl()} trả về URL stream dạng {@code /api/videos/stream/{id}} để client
+ * không cần biết object name trong MinIO.
+ *
+ * <p>Cột {@code search_vector} (tsvector) được quản lý bởi database trigger, chỉ đọc.
+ */
 @Entity
 @Table(name = "videos")
 @Data
 @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class Video {
+    /** UUID v4 — primary key. */
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
+    /** ID số nguyên tăng dần, dùng cho recommendation engine. */
     @Column(name = "numeric_id")
     private Integer numericId;
 
@@ -27,10 +45,15 @@ public class Video {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    /** Tên object trong MinIO. Ẩn khỏi JSON — client dùng stream URL thay thế. */
     @JsonIgnore
     @Column(name = "video_url", nullable = false)
     private String videoUrl;
 
+    /**
+     * Trả về URL để client gọi stream video.
+     * Nếu videoUrl là URL đầy đủ (http...) thì giữ nguyên, ngược lại trả về endpoint streaming.
+     */
     @JsonProperty("videoUrl")
     public String getStreamUrl() {
         if (this.videoUrl.startsWith("http"))
@@ -57,6 +80,10 @@ public class Video {
     @Column(name = "file_size")
     private Long fileSize;
 
+    /**
+     * Trạng thái video: {@code pending} (chờ phân tích), {@code active} (hiển thị),
+     * {@code banned} (bị ẩn/từ chối).
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private VideoStatus status = VideoStatus.pending;

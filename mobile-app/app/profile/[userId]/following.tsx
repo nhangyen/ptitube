@@ -1,3 +1,7 @@
+/**
+ * Màn hình danh sách Following của một user.
+ * Dùng `UserConnectionsScreen` với data source là `api.getFollowing(userId)`.
+ */
 import React, { useCallback } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import UserConnectionsScreen from '@/components/UserConnectionsScreen';

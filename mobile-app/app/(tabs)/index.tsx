@@ -1,3 +1,12 @@
+/**
+ * Màn hình Feed chính — hiển thị danh sách video theo dạng full-screen cuộn dọc (TikTok-style).
+ *
+ * - Dùng FlatList với `pagingEnabled` để snap từng video full màn hình.
+ * - Tự động phát video khi vào viewport (viewable item), tự pause khi ra.
+ * - Ghi nhận lượt xem qua `api.recordView()` khi video phát đủ một ngưỡng.
+ * - Hiển thị overlay: thông tin tác giả, mô tả/hashtag, SocialActions (like/comment/share/repost).
+ * - Tải thêm trang khi scroll đến cuối (infinite scroll qua `onEndReached`).
+ */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,

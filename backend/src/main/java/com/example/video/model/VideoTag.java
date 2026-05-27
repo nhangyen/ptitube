@@ -5,6 +5,18 @@ import lombok.Data;
 
 import java.util.UUID;
 
+/**
+ * Entity đại diện cho quan hệ nhiều-nhiều giữa Video và Tag.
+ *
+ * <p>Khóa chính composite: {@code (videoId, tagId)}, dùng {@link VideoTagId}.
+ * Trường {@code source} ghi rõ nguồn gốc tag:
+ * <ul>
+ *   <li>{@code "uploader"} — Trích xuất từ tiêu đề/mô tả do người upload.</li>
+ *   <li>{@code "ai"} — Tag được gán bởi Google Video Intelligence API.</li>
+ *   <li>{@code "admin"} — Tag được gán thủ công bởi moderator/admin.</li>
+ * </ul>
+ * Trường {@code weight} dùng cho recommendation engine (mặc định 1.0).
+ */
 @Entity
 @Table(name = "video_tags")
 @Data

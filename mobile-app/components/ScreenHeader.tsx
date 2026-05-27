@@ -1,3 +1,7 @@
+/**
+ * Component ScreenHeader — header tái sử dụng cho các màn hình non-tab.
+ * Hiển thị nút back (←), title, subtitle tùy chọn, và slot bên phải (`rightSlot`) cho action button.
+ */
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 

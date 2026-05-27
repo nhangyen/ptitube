@@ -1,3 +1,7 @@
+/**
+ * Component HashtagChips — hiển thị danh sách hashtag dạng chip nằm ngang.
+ * Prop `compact` hiển thị tối đa 2-3 chip; `onPress` điều hướng đến Hashtag Detail khi tap.
+ */
 import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 

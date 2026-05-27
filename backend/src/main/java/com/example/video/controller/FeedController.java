@@ -15,6 +15,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Controller cho Feed video cá nhân hóa và ghi nhận lượt xem.
+ *
+ * <p>Danh sách endpoint:
+ * <ul>
+ *   <li>{@code GET  /api/feed} — Lấy feed video cá nhân hóa cho người dùng hiện tại,
+ *       sử dụng thuật toán weighted scoring: Score = Views×1 + Likes×3 + Shares×5 − Decay_Time.</li>
+ *   <li>{@code POST /api/feed/view/{videoId}} — Ghi nhận lượt xem video kèm thông tin
+ *       watchDuration (giây) và completed (xem hết không) để phục vụ training recommendation.</li>
+ * </ul>
+ *
+ * <p>Logic gợi ý video được thực hiện bởi {@code RecommendationService}.
+ */
 @RestController
 @RequestMapping("/api/feed")
 @CrossOrigin(origins = "*")

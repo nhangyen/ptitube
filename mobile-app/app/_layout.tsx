@@ -1,3 +1,11 @@
+/**
+ * Root layout của ứng dụng — điểm khởi đầu của Expo Router.
+ *
+ * - Load font PlusJakartaSans và BeVietnamPro trước khi ẩn SplashScreen.
+ * - Bọc toàn bộ app trong AuthProvider và NotificationsProvider để cung cấp context.
+ * - Khai báo toàn bộ màn hình non-tab (create, camera, editor, preview, profile, notifications, hashtag, video).
+ * - Áp dụng dark/light theme từ color scheme của thiết bị qua ThemeProvider.
+ */
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';

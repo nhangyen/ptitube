@@ -1,3 +1,13 @@
+/**
+ * Màn hình Discover (Khám phá) — tổng hợp nội dung nổi bật và tìm kiếm đa thực thể.
+ *
+ * Khi không có query:
+ * - Hiển thị featured videos, trending hashtags và suggested creators từ `api.getDiscover()`.
+ *
+ * Khi có query (search):
+ * - Gọi `api.searchDiscover()` và hiển thị kết quả chia 3 tab: Videos, Users, Hashtags.
+ * - Debounce input để tránh gọi API quá nhiều.
+ */
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';

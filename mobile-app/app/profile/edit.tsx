@@ -1,3 +1,7 @@
+/**
+ * Màn hình chỉnh sửa hồ sơ — cho phép user cập nhật username, bio và avatar URL.
+ * Sau khi lưu, cập nhật local user trong AuthContext qua `updateLocalUser()` và gọi `refreshProfile()`.
+ */
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";

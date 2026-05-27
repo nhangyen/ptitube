@@ -4,8 +4,20 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Video categories for AI recommendation model (feat0-feat3).
- * Feat values: -1 (Unknown/Padding), 0-30 (actual categories).
+ * Enum danh mục video dùng cho mô hình AI recommendation.
+ *
+ * <p>Mỗi category có:
+ * <ul>
+ *   <li>{@code featValue} — giá trị số nguyên truyền vào feature vector của model (feat0–feat3).
+ *       Giá trị {@code 0} dành cho UNKNOWN/padding.</li>
+ *   <li>{@code displayName} — tên hiển thị tiếng Việt trên UI.</li>
+ * </ul>
+ *
+ * <p>Hai lookup map tĩnh:
+ * <ul>
+ *   <li>{@code BY_FEAT} — tra cứu category từ featValue (dùng khi đọc CSV từ recommendation engine).</li>
+ *   <li>{@code BY_KEYWORD} — ánh xạ keyword_source từ dữ liệu training sang category tương ứng.</li>
+ * </ul>
  */
 public enum VideoCategory {
     UNKNOWN(0, "Không xác định"),
@@ -153,10 +165,12 @@ public enum VideoCategory {
         return displayName;
     }
 
+    /** Tra cứu category từ featValue số nguyên; trả về {@link #UNKNOWN} nếu không tìm thấy. */
     public static VideoCategory fromFeatValue(int featValue) {
         return BY_FEAT.getOrDefault(featValue, UNKNOWN);
     }
 
+    /** Tra cứu category từ keyword_source trong CSV; trả về {@link #UNKNOWN} nếu không khớp. */
     public static VideoCategory fromKeywordSource(String keywordSource) {
         if (keywordSource == null || keywordSource.isBlank()) {
             return UNKNOWN;

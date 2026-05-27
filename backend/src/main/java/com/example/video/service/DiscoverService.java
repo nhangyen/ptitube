@@ -18,6 +18,19 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Service xử lý trang Discover, tìm kiếm và chi tiết hashtag.
+ *
+ * <p>Trang Discover ({@link #getDiscover}) trả về ba danh sách:
+ * <ul>
+ *   <li>Featured videos: 8 video từ recommendation engine.</li>
+ *   <li>Trending hashtags: 8 hashtag có nhiều video nhất.</li>
+ *   <li>Suggested creators: xếp hạng theo điểm {@code followers×3 + videoCount}.</li>
+ * </ul>
+ *
+ * <p>Tìm kiếm ({@link #search}) hỗ trợ full-text search PostgreSQL với fallback ILIKE
+ * khi extension search chưa được cấu hình.
+ */
 @Service
 public class DiscoverService {
 
@@ -45,6 +58,13 @@ public class DiscoverService {
     @Autowired
     private VideoRepostRepository videoRepostRepository;
 
+    /**
+     * Lấy nội dung trang Discover: video nổi bật, hashtag trending và creator gợi ý.
+     * Creator được xếp hạng theo điểm: {@code followerCount×3 + videoCount}.
+     *
+     * @param currentUserId ID người dùng hiện tại (null nếu chưa đăng nhập)
+     * @return DiscoverResponse với 3 danh sách
+     */
     public DiscoverResponse getDiscover(UUID currentUserId) {
         DiscoverResponse response = new DiscoverResponse();
         response.setFeaturedVideos(recommendationService.getRecommendedFeed(currentUserId, 0, 8));
@@ -65,6 +85,16 @@ public class DiscoverService {
         return response;
     }
 
+    /**
+     * Tìm kiếm đa chiều: video (full-text search + ILIKE fallback), user (username ILIKE)
+     * và hashtag (name ILIKE). Từ khóa được normalize trước khi tìm kiếm.
+     *
+     * @param rawQuery      từ khóa gốc từ client
+     * @param currentUserId ID người dùng hiện tại
+     * @param page          số trang (bắt đầu từ 0)
+     * @param size          số kết quả mỗi trang
+     * @return SearchResponse chứa danh sách video, user và hashtag phù hợp
+     */
     public SearchResponse search(String rawQuery, UUID currentUserId, int page, int size) {
         String query = tagService.normalizeHashtag(rawQuery);
 
@@ -102,6 +132,17 @@ public class DiscoverService {
         return response;
     }
 
+    /**
+     * Lấy thông tin chi tiết hashtag và danh sách video có sử dụng hashtag đó (phân trang).
+     * Chỉ trả về video có status {@code active}. Thứ tự video giữ nguyên theo DB query.
+     *
+     * @param rawTagName    tên hashtag (có thể có hoặc không có dấu #)
+     * @param currentUserId ID người dùng hiện tại
+     * @param page          số trang
+     * @param size          số video mỗi trang
+     * @return HashtagDetailResponse với thông tin hashtag và danh sách VideoFeedItem
+     * @throws RuntimeException nếu hashtag không tồn tại
+     */
     public HashtagDetailResponse getHashtagDetail(String rawTagName, UUID currentUserId, int page, int size) {
         String tagName = tagService.normalizeHashtag(rawTagName);
         Tag tag = tagRepository.findByNameIgnoreCase(tagName)
@@ -135,6 +176,15 @@ public class DiscoverService {
         return response;
     }
 
+    /**
+     * Lấy chi tiết một video. Nếu {@code repostedByUserId} được cung cấp,
+     * kiểm tra xem user đó có repost video này không và trả về context repost nếu có.
+     *
+     * @param videoId          ID video cần xem
+     * @param currentUserId    ID người dùng hiện tại
+     * @param repostedByUserId ID user đã repost (tùy chọn)
+     * @return VideoFeedItem với đầy đủ thông tin
+     */
     public VideoFeedItem getVideoDetail(UUID videoId, UUID currentUserId, UUID repostedByUserId) {
         if (repostedByUserId != null) {
             Optional<VideoRepost> repost = videoRepostRepository.findActiveByUserIdAndVideoId(

@@ -16,6 +16,21 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * Filter Spring Security chạy một lần mỗi request, chịu trách nhiệm xác thực JWT.
+ *
+ * <p>Luồng xử lý:
+ * <ol>
+ *   <li>Đọc header {@code Authorization: Bearer <token>} từ request.</li>
+ *   <li>Nếu token tồn tại và hợp lệ, giải mã lấy username.</li>
+ *   <li>Tải thông tin người dùng từ DB qua {@link CustomUserDetailsService}.</li>
+ *   <li>Đặt {@link UsernamePasswordAuthenticationToken} vào {@link SecurityContextHolder}
+ *       để các component downstream (Controller, Service) có thể đọc thông tin người dùng.</li>
+ * </ol>
+ *
+ * <p>Nếu không có token hoặc token không hợp lệ, filter vẫn cho request đi tiếp
+ * (không trả lỗi ngay) — việc kiểm tra quyền thực sự do Controller/Service đảm nhận.
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -25,6 +40,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
 
+    /**
+     * Logic chính của filter: giải mã JWT (nếu có) và thiết lập Authentication trong SecurityContext.
+     *
+     * @param request     HTTP request đến
+     * @param response    HTTP response
+     * @param filterChain chuỗi filter tiếp theo
+     * @throws ServletException nếu xảy ra lỗi servlet
+     * @throws IOException      nếu xảy ra lỗi I/O
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -48,6 +72,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * Đọc và trích xuất JWT từ header Authorization của request.
+     *
+     * @param request HTTP request cần đọc header
+     * @return chuỗi JWT (không có prefix "Bearer "), hoặc {@code null} nếu không có token
+     */
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {

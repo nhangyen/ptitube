@@ -17,6 +17,19 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Service đa năng phục vụ quản lý báo cáo vi phạm, hồ sơ người dùng và dashboard creator.
+ *
+ * <p>Khi người dùng báo cáo video ({@link #createReport}), hệ thống tự động:
+ * <ul>
+ *   <li>Tạo bản ghi {@code ModerationQueue} mới với priority="high" nếu chưa có entry active.</li>
+ *   <li>Hoặc leo thang (escalate) entry đang pending/in_review lên priority="high".</li>
+ * </ul>
+ *
+ * <p>Dashboard creator ({@link #getCreatorDashboard}) tổng hợp view/like/comment/share
+ * từ bảng {@code video_stats} cho tất cả video active của creator, tính engagement rate
+ * và trả về top 10 video theo lượt xem.
+ */
 @Service
 public class AdminService {
 
@@ -52,14 +65,29 @@ public class AdminService {
 
     // ==================== CONTENT MODERATION ====================
 
+    /** Lấy tất cả báo cáo có trạng thái "open" (chưa xử lý). */
     public List<Report> getOpenReports() {
         return reportRepository.findByStatus("open");
     }
 
+    /** Lấy tất cả báo cáo không phân biệt trạng thái. */
     public List<Report> getAllReports() {
         return reportRepository.findAll();
     }
 
+    /**
+     * Tạo báo cáo vi phạm và tự động cập nhật hàng chờ kiểm duyệt.
+     *
+     * <p>Nếu đã có entry pending/in_review → escalate priority lên "high".
+     * Nếu chưa có entry active → tạo entry mới với priority="high" và
+     * autoFlags = {@code {"source":"user_report"}}.
+     *
+     * @param reporterId ID người báo cáo
+     * @param videoId    ID video bị báo cáo
+     * @param reason     lý do báo cáo
+     * @return Report entity vừa tạo
+     * @throws RuntimeException nếu người dùng đã báo cáo video này trước đó
+     */
     @Transactional
     public Report createReport(UUID reporterId, UUID videoId, String reason) {
         if (reportRepository.existsByReporterIdAndVideoId(reporterId, videoId)) {
@@ -106,6 +134,13 @@ public class AdminService {
         return savedReport;
     }
 
+    /**
+     * Xử lý báo cáo với một trong ba hành động quản trị.
+     *
+     * @param reportId ID báo cáo cần xử lý
+     * @param action   "dismiss" (bác bỏ), "hide" (ẩn video), "ban" (cấm user + ẩn tất cả video)
+     * @throws RuntimeException nếu action không hợp lệ
+     */
     @Transactional
     public void resolveReport(UUID reportId, String action) {
         Report report = reportRepository.findById(reportId)
@@ -130,6 +165,12 @@ public class AdminService {
         reportRepository.save(report);
     }
 
+    /**
+     * Ẩn video bằng cách chuyển trạng thái sang {@code banned}.
+     * Video bị ẩn sẽ không còn xuất hiện trên feed.
+     *
+     * @param videoId ID video cần ẩn
+     */
     @Transactional
     public void hideVideo(UUID videoId) {
         Video video = videoRepository.findById(videoId)
@@ -138,6 +179,11 @@ public class AdminService {
         videoRepository.save(video);
     }
 
+    /**
+     * Bỏ ẩn video bằng cách khôi phục trạng thái về {@code active}.
+     *
+     * @param videoId ID video cần bỏ ẩn
+     */
     @Transactional
     public void unhideVideo(UUID videoId) {
         Video video = videoRepository.findById(videoId)
@@ -146,6 +192,11 @@ public class AdminService {
         videoRepository.save(video);
     }
 
+    /**
+     * Cấm người dùng bằng cách chuyển toàn bộ video của họ sang {@code banned}.
+     *
+     * @param userId ID người dùng cần cấm
+     */
     @Transactional
     public void banUser(UUID userId) {
         User user = userRepository.findById(userId)
@@ -164,6 +215,14 @@ public class AdminService {
 
     // ==================== CREATOR DASHBOARD ====================
 
+    /**
+     * Lấy thống kê tổng hợp của creator: view/like/comment/share, engagement rate
+     * và top 10 video theo lượt xem.
+     * <p>Engagement rate = (likes + comments) / views × 100 (%)
+     *
+     * @param userId ID creator
+     * @return CreatorDashboard với các chỉ số tổng hợp và danh sách VideoPerformance
+     */
     public CreatorDashboard getCreatorDashboard(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -227,6 +286,13 @@ public class AdminService {
 
     // ==================== USER PROFILE ====================
 
+    /**
+     * Lấy hồ sơ người dùng. Email chỉ được trả về khi xem hồ sơ của chính mình.
+     *
+     * @param userId        ID người dùng cần xem hồ sơ
+     * @param currentUserId ID người dùng hiện tại (có thể null)
+     * @return UserProfile với thông tin public và follow status
+     */
     public UserProfile getUserProfile(UUID userId, UUID currentUserId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -260,6 +326,13 @@ public class AdminService {
         return profile;
     }
 
+    /**
+     * Lấy danh sách video và repost active của người dùng, kết hợp và sắp xếp theo thời gian.
+     *
+     * @param userId        ID người dùng cần lấy video
+     * @param currentUserId ID người dùng hiện tại (dùng để kiểm tra like/follow status)
+     * @return danh sách VideoFeedItem gộp cả video gốc và repost
+     */
     public List<VideoFeedItem> getUserVideos(UUID userId, UUID currentUserId) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -271,6 +344,13 @@ public class AdminService {
         );
     }
 
+    /**
+     * Lấy danh sách người theo dõi (followers) của người dùng, sắp xếp theo thời gian follow mới nhất.
+     *
+     * @param userId        ID người dùng cần xem followers
+     * @param currentUserId ID người dùng hiện tại (dùng để kiểm tra trạng thái follow)
+     * @return danh sách UserCardResponse với followerCount và isFollowedByCurrentUser
+     */
     @Transactional(readOnly = true)
     public List<UserCardResponse> getFollowers(UUID userId, UUID currentUserId) {
         userRepository.findById(userId)
@@ -283,6 +363,13 @@ public class AdminService {
         return toUserCards(users, currentUserId);
     }
 
+    /**
+     * Lấy danh sách người dùng đang được follow (following) bởi người dùng.
+     *
+     * @param userId        ID người dùng cần xem danh sách following
+     * @param currentUserId ID người dùng hiện tại
+     * @return danh sách UserCardResponse
+     */
     @Transactional(readOnly = true)
     public List<UserCardResponse> getFollowing(UUID userId, UUID currentUserId) {
         userRepository.findById(userId)
@@ -295,6 +382,15 @@ public class AdminService {
         return toUserCards(users, currentUserId);
     }
 
+    /**
+     * Cập nhật hồ sơ người dùng. Chỉ cập nhật các field không null/blank.
+     * Kiểm tra trùng username trước khi thay đổi.
+     *
+     * @param userId  ID người dùng
+     * @param request thông tin cần cập nhật (username, bio, avatarUrl)
+     * @return UserProfile sau khi cập nhật
+     * @throws RuntimeException nếu username mới đã bị sử dụng
+     */
     @Transactional
     public UserProfile updateProfile(UUID userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId)
@@ -320,6 +416,10 @@ public class AdminService {
         return getUserProfile(userId, userId);
     }
 
+    /**
+     * Chuyển đổi danh sách User entity sang UserCardResponse, tối ưu bằng batch query
+     * để lấy follower count và video count trong một lần truy vấn thay vì N+1.
+     */
     private List<UserCardResponse> toUserCards(List<User> users, UUID currentUserId) {
         if (users.isEmpty()) {
             return List.of();

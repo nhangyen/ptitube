@@ -2,6 +2,10 @@ package com.example.video.dto;
 
 import lombok.Data;
 
+/**
+ * Response trả về sau khi đăng ký hoặc đăng nhập thành công.
+ * Chứa JWT token và thông tin cơ bản của user để client lưu vào local storage.
+ */
 @Data
 public class AuthResponse {
     private String id;

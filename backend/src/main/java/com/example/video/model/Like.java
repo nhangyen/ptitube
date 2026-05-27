@@ -7,6 +7,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Entity đại diện cho lượt like video.
+ *
+ * <p>Khóa chính composite: {@code (userId, videoId)} — mỗi user chỉ like một video một lần.
+ * Sử dụng {@link LikeId} làm IdClass. Quan hệ ManyToOne với User và Video được khai báo
+ * {@code insertable=false, updatable=false} để tránh xung đột với các cột khóa chính.
+ */
 @Entity
 @Table(name = "likes")
 @Data

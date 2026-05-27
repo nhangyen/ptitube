@@ -1,3 +1,12 @@
+/**
+ * Component CommentSection — modal hiển thị và tương tác bình luận của video.
+ *
+ * - Hiển thị bình luận gốc (top-level) dưới dạng FlatList.
+ * - Mỗi bình luận có thể expand để xem replies lồng nhau.
+ * - Cho phép thêm bình luận mới (top-level hoặc reply vào bình luận được chọn).
+ * - Cho phép xóa bình luận của chính mình (long press).
+ * - Tổng số bình luận được cập nhật optimistic sau mỗi thao tác thêm/xóa.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,

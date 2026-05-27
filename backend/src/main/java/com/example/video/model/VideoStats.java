@@ -6,6 +6,16 @@ import lombok.Data;
 
 import java.util.UUID;
 
+/**
+ * Entity lưu trữ thống kê tương tác của video (view, like, comment, share count).
+ *
+ * <p>Quan hệ 1-1 với Video, chia sẻ cùng khóa chính ({@code videoId} = {@code video.id})
+ * thông qua {@code @MapsId}. Bản ghi này được tạo tự động bởi database trigger khi
+ * video được insert.
+ *
+ * <p>Các counter được cập nhật trực tiếp trong service (không qua trigger) để đảm bảo
+ * nhất quán với logic nghiệp vụ (vd: xóa cây comment giảm đúng số lượng).
+ */
 @Entity
 @Table(name = "video_stats")
 @Data

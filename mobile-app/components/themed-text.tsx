@@ -1,3 +1,4 @@
+/** ThemedText — Text component tự động áp dụng màu sắc theo dark/light theme. */
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';

@@ -12,6 +12,16 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Service xử lý toàn bộ tương tác xã hội: like, comment, follow, share, repost và ghi nhận lượt xem.
+ *
+ * <p>Mỗi thao tác ghi dữ liệu đều được bọc trong {@code @Transactional} để đảm bảo tính nhất quán.
+ * Các sự kiện like, comment, follow tự động tạo thông báo qua {@link NotificationService}.
+ *
+ * <p>Lượt xem ({@link #recordView}) ngoài việc tăng view count còn ghi log tương tác
+ * (watchDuration, watchRatio) vào CSV qua {@code InteractionLoggerService} để
+ * phục vụ training mô hình recommendation.
+ */
 @Service
 public class SocialService {
 
@@ -47,6 +57,13 @@ public class SocialService {
 
     // ==================== LIKE ====================
 
+    /**
+     * Toggle like/unlike: nếu đã like thì xóa, nếu chưa thì tạo mới và gửi thông báo.
+     *
+     * @param userId  ID người dùng thực hiện like
+     * @param videoId ID video cần toggle like
+     * @return {@code true} nếu vừa like, {@code false} nếu vừa unlike
+     */
     @Transactional
     public boolean toggleLike(UUID userId, UUID videoId) {
         if (likeRepository.existsByUserIdAndVideoId(userId, videoId)) {
@@ -66,12 +83,27 @@ public class SocialService {
         }
     }
 
+    /**
+     * Kiểm tra người dùng đã like video chưa.
+     *
+     * @param userId  ID người dùng
+     * @param videoId ID video
+     * @return {@code true} nếu đã like
+     */
     public boolean isLiked(UUID userId, UUID videoId) {
         return likeRepository.existsByUserIdAndVideoId(userId, videoId);
     }
 
     // ==================== COMMENT ====================
 
+    /**
+     * Thêm bình luận mới vào video. Hỗ trợ reply bằng cách truyền {@code parentId}.
+     * Sau khi tạo, tự động gửi thông báo cho chủ video và (nếu reply) cho chủ comment cha.
+     *
+     * @param userId  ID người dùng bình luận
+     * @param request thông tin bình luận (videoId, content, parentId tùy chọn)
+     * @return CommentResponse với thông tin bình luận vừa tạo
+     */
     @Transactional
     public CommentResponse addComment(UUID userId, CommentRequest request) {
         User user = userRepository.findById(userId)
@@ -106,6 +138,14 @@ public class SocialService {
         return convertToResponse(saved);
     }
 
+    /**
+     * Lấy danh sách bình luận của video.
+     *
+     * @param videoId ID video
+     * @param nested  {@code true} → trả về cấu trúc cây (top-level + replies đệ quy);
+     *                {@code false} → flat list theo thứ tự mới nhất trước
+     * @return danh sách CommentResponse
+     */
     public List<CommentResponse> getComments(UUID videoId, boolean nested) {
         if (nested) {
             List<Comment> topLevel = commentRepository.findTopLevelComments(videoId);
@@ -119,6 +159,14 @@ public class SocialService {
         }
     }
 
+    /**
+     * Xóa bình luận và toàn bộ cây reply con. Chỉ chủ bình luận mới được xóa.
+     * Comment count của video được cập nhật chính xác (trừ tổng số node trong cây).
+     *
+     * @param commentId ID bình luận cần xóa
+     * @param userId    ID người dùng yêu cầu xóa (phải là chủ bình luận)
+     * @throws RuntimeException nếu không phải chủ bình luận
+     */
     @Transactional
     public void deleteComment(UUID commentId, UUID userId) {
         Comment comment = commentRepository.findById(commentId)
@@ -180,6 +228,15 @@ public class SocialService {
 
     // ==================== FOLLOW ====================
 
+    /**
+     * Toggle follow/unfollow. Không cho phép tự follow bản thân.
+     * Khi follow mới, gửi thông báo cho người được follow.
+     *
+     * @param followerId  ID người thực hiện follow
+     * @param followingId ID người cần follow/unfollow
+     * @return {@code true} nếu vừa follow, {@code false} nếu vừa unfollow
+     * @throws RuntimeException nếu followerId == followingId
+     */
     @Transactional
     public boolean toggleFollow(UUID followerId, UUID followingId) {
         if (followerId.equals(followingId)) {
@@ -213,6 +270,12 @@ public class SocialService {
 
     // ==================== SHARE ====================
 
+    /**
+     * Tạo deep link chia sẻ video và tăng share count trong VideoStats.
+     *
+     * @param videoId ID video cần chia sẻ
+     * @return deep link dạng "videoapp://video/{videoId}"
+     */
     @Transactional
     public String generateShareLink(UUID videoId) {
         Video video = videoRepository.findById(videoId)
@@ -228,6 +291,14 @@ public class SocialService {
         return "videoapp://video/" + videoId;
     }
 
+    /**
+     * Repost video lên feed của người dùng. Idempotent — gọi nhiều lần không tạo bản ghi trùng.
+     * Chỉ video có trạng thái {@code active} mới được repost.
+     *
+     * @param userId  ID người dùng thực hiện repost
+     * @param videoId ID video cần repost
+     * @return tổng số lượt repost hiện tại của video
+     */
     @Transactional
     public long createRepost(UUID userId, UUID videoId) {
         User user = userRepository.findById(userId)
@@ -249,6 +320,13 @@ public class SocialService {
         return getRepostCount(videoId);
     }
 
+    /**
+     * Hủy repost video của người dùng.
+     *
+     * @param userId  ID người dùng cần hủy repost
+     * @param videoId ID video
+     * @return tổng số lượt repost còn lại sau khi hủy
+     */
     @Transactional
     public long removeRepost(UUID userId, UUID videoId) {
         videoRepository.findById(videoId)
@@ -272,6 +350,37 @@ public class SocialService {
 
     // ==================== VIEW ====================
 
+    /**
+     * Ghi nhận lượt xem video và log tương tác cho recommendation engine.
+     *
+     * <p>Ba bước xử lý:
+     * <ol>
+     *   <li>Lưu bản ghi {@code VideoView} vào DB (nếu có cả user lẫn video).</li>
+     *   <li>Tăng {@code viewCount} trong {@code VideoStats}.</li>
+     *   <li>Log watchRatio = watchDuration / totalDuration vào CSV qua InteractionLoggerService.</li>
+     * </ol>
+     *
+     * @param videoId       ID video được xem
+     * @param userId        ID người xem (có thể null nếu chưa đăng nhập)
+     * @param watchDuration số giây đã xem thực tế
+     * @param completed     {@code true} nếu người dùng xem hết video
+     */
+    /**
+     * Ghi nhận lượt xem video với thông tin chi tiết để phục vụ recommendation engine.
+     *
+     * <p>Ba bước xử lý:
+     * <ol>
+     *   <li>Lưu bản ghi {@link com.example.video.model.VideoView} vào DB (nếu có userId).</li>
+     *   <li>Tăng {@code viewCount} trong bảng {@code video_stats}.</li>
+     *   <li>Ghi log tương tác ra CSV qua {@code InteractionLoggerService} để training AI
+     *       (chỉ khi cả user và video đều có {@code numericId}).</li>
+     * </ol>
+     *
+     * @param videoId       ID video được xem
+     * @param userId        ID người xem (có thể null nếu chưa đăng nhập)
+     * @param watchDuration thời gian xem thực tế (giây)
+     * @param completed     {@code true} nếu xem hết video
+     */
     @Transactional
     public void recordView(UUID videoId, UUID userId, float watchDuration, boolean completed) {
         Video video = videoRepository.findById(videoId).orElse(null);

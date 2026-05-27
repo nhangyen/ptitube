@@ -1,3 +1,22 @@
+/**
+ * Client API trung tâm của ứng dụng — bao gồm tất cả request đến backend Spring Boot.
+ *
+ * Axios instance `api` được khởi tạo một lần với baseURL và timeout từ Config.
+ * JWT token được inject vào header Authorization qua `setAuthToken()`.
+ *
+ * Các nhóm chức năng:
+ * - Auth: login, register
+ * - Feed: getFeed, recordView
+ * - Video: getVideos, getVideoDetail, uploadVideo
+ * - Social: toggleLike, addComment, getComments, toggleFollow, shareVideo, createRepost, removeRepost
+ * - Profile: getMyProfile, updateMyProfile, getUserProfile, getMyVideos, getUserVideos
+ * - Discover: getDiscover, searchDiscover, getHashtagDetail
+ * - Notifications: getNotifications, getUnreadNotificationCount, markNotificationRead, markAllNotificationsRead
+ * - Moderation: getModerationQueue, approveVideo, rejectVideo, ... (phạm vi Hoàng Sơn Lâm)
+ *
+ * URL media (videoUrl, thumbnailUrl, avatarUrl) được normalize về absolute URL
+ * qua `resolveApiMediaUrl()` để tránh lỗi trên các môi trường khác nhau.
+ */
 import axios from 'axios';
 import * as LegacyFileSystem from 'expo-file-system/legacy';
 import { API_BASE_URL, API_TIMEOUT } from '@/constants/Config';
@@ -8,6 +27,7 @@ const api = axios.create({
 });
 
 let authToken: string | null = null;
+/** Origin của API (bỏ path /api) dùng để build absolute URL cho media. */
 const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
 export interface VideoStats {
@@ -152,6 +172,10 @@ export interface AuthPayload {
   role?: string;
 }
 
+/**
+ * Chuyển đổi URL media từ backend về dạng absolute URL có thể dùng trong Image/Video.
+ * Xử lý các trường hợp: đã là absolute URL, relative path (/api/...), giao thức (//).
+ */
 const resolveApiMediaUrl = (value?: string | null): string | undefined => {
   if (!value) {
     return undefined;
@@ -208,6 +232,7 @@ const normalizeHashtagDetail = (data: any, tag: string): HashtagDetail => ({
   videos: normalizeVideoItems(data?.videos),
 });
 
+/** Lưu JWT token vào biến module và inject vào Axios default header Authorization. */
 export const setAuthToken = (token: string | null) => {
   authToken = token;
   if (token) {
@@ -217,6 +242,7 @@ export const setAuthToken = (token: string | null) => {
   }
 };
 
+/** Lấy JWT token hiện tại — dùng để kiểm tra trạng thái đăng nhập. */
 export const getAuthToken = () => authToken;
 
 export const login = async (username: string, password: string): Promise<AuthPayload> => {
@@ -255,6 +281,11 @@ export const getVideoDetail = async (videoId: string, repostedByUserId?: string)
   return normalizeVideoItem(response.data);
 };
 
+/**
+ * Upload video lên server dùng multipart/form-data qua Expo FileSystem legacy API.
+ * Hỗ trợ theo dõi tiến trình qua callback `onProgress(percent)`.
+ * Ném Error nếu server trả về status ngoài 200-299.
+ */
 export const uploadVideo = async (
   file: { uri: string; name: string; type: string },
   title: string,

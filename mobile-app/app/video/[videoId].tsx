@@ -1,3 +1,11 @@
+/**
+ * Màn hình chi tiết video — phát video và hiển thị thông tin đầy đủ.
+ *
+ * - Load VideoItem theo videoId từ URL param.
+ * - Phát video với expo-av, hỗ trợ replay.
+ * - Hiển thị CommentSection, SocialActions (like/share/repost) và HashtagChips.
+ * - Điều hướng đến profile tác giả khi tap username.
+ */
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Dimensions, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";

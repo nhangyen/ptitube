@@ -1,3 +1,13 @@
+/**
+ * Màn hình Profile/Dashboard — hiển thị thông tin cá nhân, thống kê kênh và danh sách video.
+ *
+ * Hai chế độ:
+ * - Chưa đăng nhập: hiển thị form đăng nhập / đăng ký.
+ * - Đã đăng nhập: hiển thị avatar, stats (followers, following, videos, likes),
+ *   Creator Dashboard (views, engagement rate, top videos) và VideoGrid video của mình.
+ *
+ * `formatNumber` chuyển số lớn về dạng ngắn gọn: 1.2K, 3.4M.
+ */
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';

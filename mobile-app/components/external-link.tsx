@@ -1,3 +1,4 @@
+/** ExternalLink — mở URL ngoài bằng in-app browser (expo-web-browser) thay vì mở app mặc định. */
 import { Href, Link } from 'expo-router';
 import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
 import { type ComponentProps } from 'react';

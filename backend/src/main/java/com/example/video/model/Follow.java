@@ -7,6 +7,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Entity đại diện cho quan hệ follow giữa hai người dùng.
+ *
+ * <p>Khóa chính composite: {@code (followerId, followingId)} — mỗi cặp follow chỉ tồn tại một lần.
+ * Sử dụng {@link FollowId} làm IdClass. Tham chiếu {@code follower} (người follow) và
+ * {@code following} (người được follow) được khai báo read-only để tránh xung đột với khóa chính.
+ */
 @Entity
 @Table(name = "follows")
 @Data

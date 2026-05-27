@@ -1,3 +1,16 @@
+/**
+ * Context quản lý trạng thái xác thực toàn ứng dụng.
+ *
+ * Cung cấp:
+ * - `user` / `token` — thông tin user và JWT token hiện tại.
+ * - `login` / `register` / `logout` — các thao tác xác thực.
+ * - `refreshProfile` — đồng bộ lại thông tin user từ server.
+ * - `updateLocalUser` — cập nhật user local (sau khi sửa profile) mà không cần gọi API.
+ * - `isLoading` — `true` trong lúc khôi phục session từ AsyncStorage khi khởi động app.
+ *
+ * Token và user được persist trong AsyncStorage để duy trì đăng nhập giữa các lần mở app.
+ * Hook `useAuth()` ném Error nếu dùng ngoài `AuthProvider`.
+ */
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as api from '@/services/api';

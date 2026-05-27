@@ -1,3 +1,7 @@
+/**
+ * Camera Screen — phiên bản Web fallback.
+ * Trên web không có camera native, hiển thị thông báo chuyển hướng sang chọn file từ thư viện.
+ */
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';

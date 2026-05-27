@@ -1,3 +1,18 @@
+/**
+ * Tab layout chính của ứng dụng — định nghĩa bottom navigation bar.
+ *
+ * Các tab:
+ * - Feed (index): trang chủ video
+ * - Discover (explore): tìm kiếm và khám phá
+ * - Create (action): nút tròn nổi ở giữa, mở màn hình tạo video
+ * - Alerts: thông báo với badge số chưa đọc
+ * - Profile (dashboard): hồ sơ cá nhân và thống kê
+ * - Moderate: chỉ hiện với role admin/moderator
+ *
+ * Tab bar có nền blur (BlurView) với màu tối bán trong suốt.
+ * `CreateTabButton` — nút custom nổi lên trên tab bar với hiệu ứng shadow.
+ * `NotificationsTabIcon` — icon chuông kèm badge đỏ khi có thông báo chưa đọc.
+ */
 import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';

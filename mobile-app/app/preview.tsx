@@ -1,3 +1,11 @@
+/**
+ * Preview Screen — Xem trước và đăng video sau khi chỉnh sửa.
+ *
+ * - Phát video đã chỉnh sửa từ editor (videoUri từ params).
+ * - Cho phép nhập tiêu đề và mô tả trước khi đăng.
+ * - Gọi `api.uploadVideo()` với theo dõi tiến trình upload.
+ * - Điều hướng về Feed sau khi đăng thành công.
+ */
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {

@@ -19,6 +19,22 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Service quản lý vòng đời video: upload, truy vấn và streaming.
+ *
+ * <p>Quy trình upload video:
+ * <ol>
+ *   <li>Validate file (không rỗng, kích thước ≤ maxUploadSize, content-type bắt đầu với "video/").</li>
+ *   <li>Upload file lên MinIO với tên UUID + extension.</li>
+ *   <li>Lưu bản ghi Video vào PostgreSQL với status {@code active}.</li>
+ *   <li>Gán hashtag từ tiêu đề và mô tả ({@link TagService#assignHashtagsToVideo}).</li>
+ *   <li>Kích hoạt phân tích AI bất đồng bộ ({@link AiAnalysisService#analyzeVideo}).</li>
+ * </ol>
+ *
+ * <p>Streaming hỗ trợ HTTP Range Request: {@link #getVideoStreamResource} chấp nhận
+ * offset và length tùy ý, trả về {@link VideoStreamResource} bao gồm InputStream
+ * và metadata cần thiết để xây dựng response 206 Partial Content.
+ */
 @Service
 public class VideoService {
 
@@ -42,6 +58,16 @@ public class VideoService {
     @Value("${app.video.max-upload-size:250MB}")
     private DataSize maxUploadSize;
 
+    /**
+     * Upload video lên MinIO, lưu vào DB, gán hashtag và kích hoạt phân tích AI.
+     *
+     * @param file        file video (multipart, bắt buộc)
+     * @param title       tiêu đề video (bắt buộc, không rỗng)
+     * @param description mô tả video (tùy chọn, có thể chứa hashtag)
+     * @param username    username của người upload
+     * @return Video entity đã được lưu vào DB
+     * @throws RuntimeException nếu file không hợp lệ, user không tồn tại hoặc upload MinIO thất bại
+     */
     public Video uploadVideo(MultipartFile file, String title, String description, String username) {
         validateUpload(file, title);
 
@@ -69,10 +95,27 @@ public class VideoService {
         return saved;
     }
 
+    /**
+     * Lấy tất cả video có trạng thái {@code active}, sắp xếp mới nhất trước.
+     *
+     * @return danh sách Video entity
+     */
     public List<Video> getAllVideos() {
         return videoRepository.findByStatusOrderByCreatedAtDesc(VideoStatus.active);
     }
 
+    /**
+     * Tạo resource stream video với hỗ trợ partial content.
+     *
+     * <p>Clamp offset vào phạm vi [0, totalLength-1] và tính contentLength thực tế
+     * để tránh đọc ngoài vùng dữ liệu.
+     *
+     * @param videoId         ID video cần stream
+     * @param offset          byte bắt đầu đọc (0 = từ đầu)
+     * @param requestedLength số byte cần đọc (-1 = đọc đến cuối)
+     * @return VideoStreamResource chứa InputStream và metadata phản hồi
+     * @throws RuntimeException nếu video không tìm thấy hoặc MinIO lỗi
+     */
     public VideoStreamResource getVideoStreamResource(UUID videoId, long offset, long requestedLength) {
         Video video = getVideo(videoId);
         VideoStreamMetadata metadata = buildStreamMetadata(video);
@@ -96,15 +139,32 @@ public class VideoService {
                 metadata.objectName());
     }
 
+    /**
+     * Lấy metadata stream của video (kích thước, content-type, object name trong MinIO).
+     * Dùng để tính Range trước khi stream.
+     *
+     * @param videoId ID video cần lấy metadata
+     * @return VideoStreamMetadata
+     */
     public VideoStreamMetadata getVideoStreamMetadata(UUID videoId) {
         return buildStreamMetadata(getVideo(videoId));
     }
 
+    /**
+     * Lấy Video theo ID. Ném RuntimeException nếu không tìm thấy.
+     *
+     * @param videoId ID video cần truy vấn
+     * @return Video entity
+     */
     public Video getVideo(UUID videoId) {
         return videoRepository.findById(videoId)
                 .orElseThrow(() -> new RuntimeException("Video not found"));
     }
 
+    /**
+     * Kiểm tra tính hợp lệ của file và tiêu đề upload.
+     * Ném RuntimeException với thông báo rõ ràng nếu vi phạm bất kỳ điều kiện nào.
+     */
     private void validateUpload(MultipartFile file, String title) {
         if (file == null || file.isEmpty()) {
             throw new RuntimeException("Video file is required");
@@ -123,6 +183,10 @@ public class VideoService {
         }
     }
 
+    /**
+     * Tạo tên object MinIO an toàn: UUID + extension của file gốc.
+     * Loại bỏ ký tự path traversal (backslash, slash) để tránh lỗ hổng bảo mật.
+     */
     private String buildObjectName(MultipartFile file) {
         String originalName = Optional.ofNullable(file.getOriginalFilename()).orElse("upload.mp4");
         String cleanName = StringUtils.cleanPath(originalName).replace("\\", "_").replace("/", "_");

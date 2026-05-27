@@ -1,3 +1,8 @@
+/**
+ * Component VideoGrid — hiển thị danh sách video dạng lưới 2 cột.
+ * Dùng trong trang Profile và Hashtag Detail để liệt kê video của user/hashtag.
+ * Mỗi card hiển thị thumbnail, tiêu đề và viewCount. Tap để navigate đến VideoDetail.
+ */
 import React from 'react';
 import { Image } from 'expo-image';
 import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';

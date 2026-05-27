@@ -1,3 +1,8 @@
+/**
+ * Component UserConnectionsScreen — màn hình tái sử dụng để hiển thị danh sách user (followers/following).
+ * Nhận `loadUsers` là async function để fetch data — tái sử dụng cho cả Followers và Following screen.
+ * Mỗi user card có nút Follow/Unfollow inline, điều hướng đến profile khi tap.
+ */
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,

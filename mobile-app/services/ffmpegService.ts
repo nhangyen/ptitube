@@ -1,4 +1,17 @@
-﻿import { NativeModules, Platform } from 'react-native';
+﻿/**
+ * Service xử lý video trên thiết bị Android bằng native module Media3Transformer.
+ *
+ * Cung cấp:
+ * - `concatSegments` — ghép nhiều clip camera thành một video.
+ * - `exportVideo`    — xuất video với các hiệu ứng: cắt (trim), nhạc nền, tốc độ, chữ, bộ lọc màu.
+ * - `generateThumbnail` — tạo ảnh thumbnail từ video.
+ * - `cleanupTmpFiles` / `cleanupLocalFiles` — dọn dẹp file tạm sau khi upload xong.
+ *
+ * Trên iOS/web: các hàm này trả về URI gốc mà không xử lý (stub) vì native module chỉ có Android.
+ * `COLOR_FILTER_PRESETS` — tập hợp các bộ lọc màu FFmpeg: grayscale, vivid, autumn, vintage, cool.
+ * `pruneTmpDirs` — tự động xóa file cache cũ hơn 6 giờ và giới hạn tối đa 24 file.
+ */
+import { NativeModules, Platform } from 'react-native';
 import { Directory, File, Paths } from 'expo-file-system';
 
 export interface TrimParams {
@@ -145,6 +158,11 @@ function isLikelyTemporaryUri(uri: string): boolean {
   );
 }
 
+/**
+ * Ghép nhiều clip video thành một file duy nhất qua native module Media3.
+ * Nếu chỉ có 1 clip hoặc không chạy trên Android, trả về clip đầu tiên.
+ * Callback `onProgress(percent)` được gọi tại 0% và 100%.
+ */
 export async function concatSegments(
   segments: string[],
   onProgress?: (percent: number) => void
@@ -168,6 +186,11 @@ export async function concatSegments(
   return ensureFileUri(output);
 }
 
+/**
+ * Xuất video với toàn bộ hiệu ứng chỉnh sửa từ EditorState.
+ * Progress được poll mỗi 250ms từ native module để cập nhật UI.
+ * Trả về URI của file output sau khi xử lý xong.
+ */
 export async function exportVideo(
   state: EditorState,
   onProgress?: (percent: number) => void
@@ -218,6 +241,7 @@ export async function exportVideo(
   }
 }
 
+/** Tạo ảnh thumbnail từ frame đầu tiên của video. Stub trên non-Android. */
 export async function generateThumbnail(videoUri: string): Promise<string> {
   if (Platform.OS !== 'android') {
     return ensureFileUri(videoUri);
@@ -227,6 +251,7 @@ export async function generateThumbnail(videoUri: string): Promise<string> {
   return ensureFileUri(await module.generateThumbnail(ensureFileUri(videoUri)));
 }
 
+/** Dọn dẹp file tạm cũ trong các thư mục cache của native module và service. */
 export async function cleanupTmpFiles(): Promise<void> {
   pruneTmpDirs();
 
@@ -241,6 +266,10 @@ export async function cleanupTmpFiles(): Promise<void> {
   }
 }
 
+/**
+ * Xóa danh sách file local tạm sau khi upload xong.
+ * Chỉ xóa file có scheme `file://` nằm trong thư mục cache/tmp — tránh xóa nhầm file người dùng.
+ */
 export async function cleanupLocalFiles(uris: Array<string | null | undefined>): Promise<void> {
   uris
     .filter((uri): uri is string => Boolean(uri))

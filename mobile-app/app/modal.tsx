@@ -1,3 +1,4 @@
+/** Modal screen placeholder — dùng để demo presentation modal trong Expo Router. */
 import { Link } from 'expo-router';
 import { View, Text } from 'react-native';
 

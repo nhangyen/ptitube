@@ -11,6 +11,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Entity đại diện cho bình luận trong hệ thống.
+ *
+ * <p>Cấu trúc phân cấp (self-referencing): mỗi comment có thể có một {@code parent}
+ * (bình luận cha) và danh sách {@code replies} (bình luận con).
+ * Khi xóa bình luận cha, tất cả bình luận con bị cascade xóa theo ({@code orphanRemoval=true}).
+ *
+ * <p>{@code @JsonIgnoreProperties} được áp dụng để tránh vòng lặp JSON serialization.
+ */
 @Entity
 @Table(name = "comments")
 @Data

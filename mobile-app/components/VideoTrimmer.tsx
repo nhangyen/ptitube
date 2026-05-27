@@ -1,3 +1,9 @@
+/**
+ * Component VideoTrimmer — Giao diện cắt xén video theo thời gian.
+ *
+ * Hiển thị thanh timeline với hai tay kéo (start/end handle) để chọn đoạn cắt.
+ * Phát preview realtime khi kéo. Kết quả là TrimParams {start, end} tính bằng giây.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,

@@ -1,3 +1,11 @@
+/**
+ * Màn hình hồ sơ công khai của một user — hiển thị theo userId trong URL param.
+ *
+ * - Load ProfileData và danh sách video của user đó.
+ * - Hiển thị avatar, stats (followers, following, videos, likes).
+ * - Nút Follow/Unfollow (ẩn nếu đang xem profile của chính mình).
+ * - Nút Report video và điều hướng đến màn hình chỉnh sửa profile nếu là currentUser.
+ */
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";

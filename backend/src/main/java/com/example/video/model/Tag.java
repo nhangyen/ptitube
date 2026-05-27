@@ -7,6 +7,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Entity đại diện cho tag/hashtag dùng để phân loại và tìm kiếm video.
+ *
+ * <p>Hiện hỗ trợ category {@code "hashtag"} (trích xuất từ tiêu đề/mô tả video).
+ * Tên tag được lưu chữ thường (lowercase) và unique để tránh trùng lặp.
+ * Tag có thể bị deactivate ({@code isActive=false}) thay vì xóa để giữ toàn vẹn dữ liệu lịch sử.
+ */
 @Entity
 @Table(name = "tags")
 @Data

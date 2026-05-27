@@ -1,3 +1,7 @@
+/**
+ * Màn hình Hashtag Detail — hiển thị thông tin hashtag và danh sách video có gắn tag đó.
+ * Tag được lấy từ URL param `[tag]`. Load từ `api.getHashtagDetail()`.
+ */
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";

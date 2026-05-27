@@ -1,3 +1,17 @@
+/**
+ * Component SocialActions — thanh hành động xã hội bên phải video (dọc).
+ *
+ * Bao gồm các nút:
+ * - Like (heart): toggle like với animation scale, cập nhật likeCount optimistic.
+ * - Comment (bubble): mở CommentSection modal.
+ * - Share: gọi Native Share sheet và ghi nhận shareCount.
+ * - Follow (+/✓): toggle follow tác giả video.
+ * - Repost (repeat): toggle repost video.
+ * - Report (flag): mở modal nhập lý do báo cáo.
+ *
+ * Nhận `stats` và `initialLiked`/`initialReposted` từ parent (Feed hoặc VideoDetail).
+ * Tất cả thay đổi được apply optimistic trước khi gọi API.
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Animated, Share as NativeShare, Modal, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Heart, MessageCircle, Share2, Plus, Check, Repeat, Flag } from 'lucide-react-native';

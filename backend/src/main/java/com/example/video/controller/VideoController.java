@@ -19,6 +19,21 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Controller quản lý video: upload, lấy danh sách, xem chi tiết và streaming.
+ *
+ * <p>Danh sách endpoint:
+ * <ul>
+ *   <li>{@code POST /api/videos/upload} — Upload video mới (multipart/form-data).</li>
+ *   <li>{@code GET  /api/videos} — Lấy toàn bộ video có status {@code active}.</li>
+ *   <li>{@code GET  /api/videos/{videoId}} — Lấy chi tiết video dưới dạng VideoFeedItem.</li>
+ *   <li>{@code GET  /api/videos/stream/{videoId}} — Stream video hỗ trợ HTTP Range (partial content).</li>
+ * </ul>
+ *
+ * <p>Streaming hỗ trợ HTTP Range Request (RFC 7233): client (video player) có thể yêu cầu
+ * đoạn video cụ thể qua header {@code Range: bytes=start-end}, server trả về
+ * {@code 206 Partial Content} với header {@code Content-Range}.
+ */
 @RestController
 @RequestMapping("/api/videos")
 @CrossOrigin(origins = "*") // Allow all for testing
@@ -33,6 +48,18 @@ public class VideoController {
     @Autowired
     private UserRepository userRepository;
 
+    /**
+     * Upload video lên hệ thống.
+     *
+     * <p>Sau khi lưu video vào MinIO và DB, tự động kích hoạt phân tích AI bất đồng bộ
+     * ({@link com.example.video.service.AiAnalysisService#analyzeVideo}) và gán hashtag từ tiêu đề/mô tả.
+     *
+     * @param file           file video (multipart)
+     * @param title          tiêu đề video (bắt buộc)
+     * @param description    mô tả video (tùy chọn, có thể chứa hashtag)
+     * @param authentication thông tin người dùng đang đăng nhập
+     * @return Video entity đã được lưu vào DB
+     */
     @PostMapping("/upload")
     public ResponseEntity<Video> uploadVideo(
             @RequestParam("file") MultipartFile file,
@@ -46,11 +73,24 @@ public class VideoController {
         return ResponseEntity.ok(video);
     }
 
+    /**
+     * Lấy danh sách tất cả video có trạng thái {@code active}, sắp xếp mới nhất trước.
+     *
+     * @return danh sách Video entity
+     */
     @GetMapping
     public List<Video> listVideos() {
         return videoService.getAllVideos();
     }
 
+    /**
+     * Lấy chi tiết một video theo ID, kèm thông tin like/comment/follow của người dùng hiện tại.
+     *
+     * @param videoId           ID của video cần xem
+     * @param repostedByUserId  (tùy chọn) ID user đã repost — nếu cung cấp, hiển thị context repost
+     * @param authentication    thông tin người dùng đang đăng nhập (có thể null nếu chưa login)
+     * @return VideoFeedItem với đầy đủ thông tin hiển thị feed
+     */
     @GetMapping("/{videoId}")
     public ResponseEntity<VideoFeedItem> getVideoDetail(
             @PathVariable UUID videoId,
@@ -63,6 +103,17 @@ public class VideoController {
         ));
     }
 
+    /**
+     * Stream video với hỗ trợ HTTP Range Request (RFC 7233) cho phép tua video.
+     *
+     * <p>Nếu header {@code Range} hợp lệ, trả về {@code 206 Partial Content}.
+     * Nếu không có Range, trả về toàn bộ file với {@code 200 OK}.
+     * Content-Type được tự động phát hiện từ metadata MinIO.
+     *
+     * @param videoId     ID video cần stream
+     * @param rangeHeader giá trị header Range (vd: "bytes=0-1048576"), có thể null
+     * @return stream audio/video cho video player
+     */
     @GetMapping(value = "/stream/{videoId}")
     public ResponseEntity<InputStreamResource> streamVideo(
             @PathVariable UUID videoId,
@@ -99,6 +150,7 @@ public class VideoController {
         }
     }
 
+    /** Parse MediaType an toàn, fallback về application/octet-stream nếu content-type không hợp lệ. */
     private MediaType safeMediaType(String contentType) {
         try {
             return MediaType.parseMediaType(contentType);
@@ -107,6 +159,15 @@ public class VideoController {
         }
     }
 
+    /**
+     * Phân tích header Range thành cặp (start, length).
+     * Hỗ trợ: "bytes=start-end", "bytes=start-", "bytes=-suffixLength".
+     *
+     * @param rangeHeader  chuỗi Range header (vd: "bytes=0-1023")
+     * @param totalLength  tổng kích thước file (byte)
+     * @return ByteRange chứa offset bắt đầu và độ dài đoạn cần đọc
+     * @throws IllegalArgumentException nếu format Range không hợp lệ
+     */
     private ByteRange parseRange(String rangeHeader, long totalLength) {
         String value = rangeHeader.substring("bytes=".length()).trim();
         if (value.contains(",")) {
@@ -145,6 +206,7 @@ public class VideoController {
         return new ByteRange(start, end - start + 1);
     }
 
+    /** Lấy UUID của người dùng hiện tại từ JWT, trả về null nếu chưa đăng nhập. */
     private UUID getCurrentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return null;
@@ -154,6 +216,7 @@ public class VideoController {
                 .orElse(null);
     }
 
+    /** Record đại diện cho byte range: vị trí bắt đầu và số byte cần đọc. */
     private record ByteRange(long start, long length) {
     }
 }

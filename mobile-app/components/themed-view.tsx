@@ -1,3 +1,4 @@
+/** ThemedView — View container tự động áp dụng màu nền theo dark/light theme. */
 import { View, type ViewProps } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';

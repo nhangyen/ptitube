@@ -14,6 +14,23 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service xử lý đăng ký và đăng nhập tài khoản.
+ *
+ * <p>Quy trình đăng ký:
+ * <ol>
+ *   <li>Kiểm tra username và email chưa tồn tại trong DB.</li>
+ *   <li>Mã hóa password bằng BCrypt rồi lưu User vào DB.</li>
+ *   <li>Tự động gọi {@link #authenticate} để trả về JWT ngay sau khi đăng ký.</li>
+ * </ol>
+ *
+ * <p>Quy trình đăng nhập:
+ * <ol>
+ *   <li>Xác thực qua {@link org.springframework.security.authentication.AuthenticationManager}.</li>
+ *   <li>Đặt Authentication vào SecurityContext.</li>
+ *   <li>Tạo JWT bằng {@link com.example.video.security.JwtTokenProvider} và trả về {@link com.example.video.dto.AuthResponse}.</li>
+ * </ol>
+ */
 @Service
 public class AuthService {
 
@@ -29,6 +46,13 @@ public class AuthService {
     @Autowired
     private JwtTokenProvider tokenProvider;
 
+    /**
+     * Đăng ký tài khoản mới và trả về JWT (tự động đăng nhập).
+     *
+     * @param request thông tin đăng ký (username, email, password)
+     * @return AuthResponse chứa JWT và thông tin người dùng
+     * @throws RuntimeException nếu username hoặc email đã tồn tại
+     */
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Username is already taken!");
@@ -54,6 +78,13 @@ public class AuthService {
         });
     }
 
+    /**
+     * Xác thực đăng nhập và tạo JWT.
+     *
+     * @param request thông tin đăng nhập (username, password)
+     * @return AuthResponse chứa JWT, userId, username, email, avatarUrl, role
+     * @throws org.springframework.security.core.AuthenticationException nếu thông tin sai
+     */
     public AuthResponse authenticate(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
